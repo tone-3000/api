@@ -111,31 +111,75 @@ interface PaginatedResponse<T> {
 type TonesResponse = PaginatedResponse<Tone>;
 type ModelsResponse = PaginatedResponse<Model>;
 
-interface FetchOptions {
-  method?: 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH'
-  params?: any
+interface Session {
+  access_token: string;
+  refresh_token: string;
+  expires_in: number;  // seconds until token expires
+  token_type: 'bearer';
 }
 
 /**
  * Simple fetch wrapper that handles token refresh automatically
  */
-export async function tone3000Fetch(url: string, options: FetchOptions = {}): Promise<Response> {
-  const { method = 'GET', params } = options
-  
+export async function tone3000Fetch(url: string): Promise<Response> {
   let accessToken = localStorage.getItem('tone3000_access_token')
+  const expiresAt = parseInt(localStorage.getItem('tone3000_expires_at') || '0')
   
   if (!accessToken) {
     throw new Error('No access token available')
   }
 
-  // First attempt with current token
+  // Check if token is expired or about to expire (within 30 seconds)
+  if (Date.now() > expiresAt - 30000) {
+    try {
+      // Refresh the token
+      const refreshToken = localStorage.getItem('tone3000_refresh_token')
+      if (!refreshToken) {
+        throw new Error('No refresh token available')
+      }
+
+      const refreshResponse = await fetch(`${API_DOMAIN}/api/v1/auth/session/refresh`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          refresh_token: refreshToken,
+          access_token: accessToken
+        })
+      })
+
+      if (!refreshResponse.ok) {
+        // Clear tokens
+        localStorage.removeItem('tone3000_access_token')
+        localStorage.removeItem('tone3000_refresh_token')
+        localStorage.removeItem('tone3000_expires_at')
+        // Redirect to login
+        window.location.href = `${API_DOMAIN}/api/v1/auth?redirectUrl=${redirectUrl}`
+        throw new Error('Token refresh failed')
+      }
+
+      const tokens = await refreshResponse.json() as Session
+      
+      // Store new tokens and expiration
+      localStorage.setItem('tone3000_access_token', tokens.access_token)
+      localStorage.setItem('tone3000_refresh_token', tokens.refresh_token)
+      localStorage.setItem('tone3000_expires_at', String(Date.now() + (tokens.expires_in * 1000)))
+
+      // Update access token for this request
+      accessToken = tokens.access_token
+    } catch (refreshError) {
+      throw new Error('Authentication failed and token refresh unsuccessful')
+    }
+  }
+
+  // Make the request with current or refreshed token
   let response = await fetch(url, {
-    method,
+    method: 'GET',
     headers: {
       'Authorization': `Bearer ${accessToken}`,
       'Content-Type': 'application/json'
-    },
-    ...(params && { body: JSON.stringify(params) })
+    }
   })
 
   // If unauthorized, try to refresh and retry once
@@ -162,25 +206,26 @@ export async function tone3000Fetch(url: string, options: FetchOptions = {}): Pr
         // Clear tokens
         localStorage.removeItem('tone3000_access_token')
         localStorage.removeItem('tone3000_refresh_token')
+        localStorage.removeItem('tone3000_expires_at')
         // Redirect to login
         window.location.href = `${API_DOMAIN}/api/v1/auth?redirectUrl=${redirectUrl}`
         throw new Error('Token refresh failed')
       }
 
-      const tokens = await refreshResponse.json()
+      const tokens = await refreshResponse.json() as Session
       
-      // Store new tokens
+      // Store new tokens and expiration
       localStorage.setItem('tone3000_access_token', tokens.access_token)
       localStorage.setItem('tone3000_refresh_token', tokens.refresh_token)
+      localStorage.setItem('tone3000_expires_at', String(Date.now() + (tokens.expires_in * 1000)))
 
       // Retry original request with new token
       response = await fetch(url, {
-        method,
+        method: 'GET',
         headers: {
           'Authorization': `Bearer ${tokens.access_token}`,
           'Content-Type': 'application/json'
-        },
-        ...(params && { body: JSON.stringify(params) })
+        }
       })
 
     } catch (refreshError) {
@@ -213,10 +258,11 @@ function App() {
         throw new Error(`HTTP error! status: ${response.status}`)
       }
 
-      const data = await response.json()
+      const data = await response.json() as Session
       
       localStorage.setItem('tone3000_access_token', data.access_token)
       localStorage.setItem('tone3000_refresh_token', data.refresh_token)
+      localStorage.setItem('tone3000_expires_at', String(Date.now() + (data.expires_in * 1000)))
       setIsLoggedIn(true)
       // Clean up the URL
       window.history.replaceState({}, document.title, window.location.pathname)

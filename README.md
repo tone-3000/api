@@ -1,6 +1,6 @@
 # TONE3000 API Integration Guide
 
-This project demonstrates how to integrate with the TONE3000 API. This guide will walk you through user authentication, session management, and available API endpoints.
+This project demonstrates how to integrate with the TONE3000 API. This guide will walk you through user authentication, session management, and available API endpoints. For the complete API documentation, visit [https://www.tone3000.com/api/docs](https://www.tone3000.com/api/docs).
 
 ## Environment Setup
 
@@ -22,7 +22,7 @@ The `VITE_` prefix is required for Vite to expose the environment variable to th
 
 1. Redirect users to the TONE3000 authentication page:
 ```typescript
-const redirectUrl = encodeURIComponent('YOUR_APP_URL');
+const redirectUrl = encodeURIComponent(APP_URL);
 window.location.href = `https://www.tone3000.com/api/v1/auth?redirectUrl=${redirectUrl}`;
 ```
 
@@ -30,27 +30,45 @@ window.location.href = `https://www.tone3000.com/api/v1/auth?redirectUrl=${redir
 
 3. Exchange the API key for session tokens:
 ```typescript
+interface Session {
+  access_token: string;
+  refresh_token: string;
+  expires_in: number;  // seconds until token expires
+  token_type: 'bearer';
+}
+
 const response = await fetch('https://www.tone3000.com/api/v1/auth/session', {
   method: 'POST',
   body: JSON.stringify({ api_key: apiKey })
 });
 
-const data = await response.json();
+const data = await response.json() as Session;
 ```
 
 ### Session Management
 
 1. **Initial Authentication**
-   - After successful authentication, you receive an `access_token` and `refresh_token`
-   - Store these tokens securely (e.g., in localStorage):
+   - After successful authentication, you receive an `access_token`, `refresh_token`, and `expires_in` (seconds until token expires)
+   - Store these tokens and expiration time securely (e.g., in localStorage):
    ```typescript
    localStorage.setItem('tone3000_access_token', data.access_token);
    localStorage.setItem('tone3000_refresh_token', data.refresh_token);
+   localStorage.setItem('tone3000_expires_at', String(Date.now() + (data.expires_in * 1000)));
    ```
 
 2. **Making API Requests**
+   - Before making a request, check if the token is about to expire
+   - If the token is expired or will expire soon (e.g., within 30 seconds), refresh it proactively
    - Include the access token in the Authorization header:
    ```typescript
+   const expiresAt = parseInt(localStorage.getItem('tone3000_expires_at') || '0');
+   
+   // Check if token is expired or about to expire (within 30 seconds)
+   if (Date.now() > expiresAt - 30000) {
+     // Refresh token before making the request
+     await refreshTokens();
+   }
+
    const response = await fetch(url, {
      headers: {
        'Authorization': `Bearer ${accessToken}`,
@@ -60,10 +78,10 @@ const data = await response.json();
    ```
 
 3. **Token Refresh Flow**
-   - When an API request returns 401 (Unauthorized):
+   - When proactively refreshing or when an API request returns 401 (Unauthorized):
      1. Use the refresh token to get a new access token
-     2. Store the new tokens
-     3. Retry the original request
+     2. Store the new tokens and expiration time
+     3. Retry the original request if needed
    ```typescript
    const refreshResponse = await fetch('https://www.tone3000.com/api/v1/auth/session/refresh', {
      method: 'POST',
@@ -72,21 +90,29 @@ const data = await response.json();
        access_token: accessToken
      })
    });
+
+   const tokens = await refreshResponse.json() as Session;
+   
+   // Store new tokens and expiration
+   localStorage.setItem('tone3000_access_token', tokens.access_token);
+   localStorage.setItem('tone3000_refresh_token', tokens.refresh_token);
+   localStorage.setItem('tone3000_expires_at', String(Date.now() + (tokens.expires_in * 1000)));
    ```
 
 4. **Handling Refresh Failure**
    - If token refresh fails:
-     1. Clear stored tokens
-     2. Redirect user to login page
+     1. Clear all stored tokens and expiration time
+     2. Redirect user to login page to restart auth flow
    ```typescript
    localStorage.removeItem('tone3000_access_token');
    localStorage.removeItem('tone3000_refresh_token');
+   localStorage.removeItem('tone3000_expires_at');
    window.location.href = `https://www.tone3000.com/api/v1/auth?redirectUrl=${redirectUrl}`;
    ```
 
 #### Using the tone3000Fetch Utility
 
-The example `tone3000Fetch` utility handles all of this automatically. Use it for all API requests:
+The example `tone3000Fetch` utility handles all of this automatically, including proactive token refresh based on expiration time. Use it for all API requests:
 
 ```typescript
 // Example: Fetching user data
@@ -94,7 +120,11 @@ const response = await tone3000Fetch('https://www.tone3000.com/api/v1/user');
 const userData = await response.json();
 ```
 
-This ensures consistent token handling across your application without implementing the refresh logic in each API call.
+This ensures consistent token handling across your application, including:
+- Proactive token refresh before expiration
+- Automatic retry on 401 errors
+- Proper token storage and cleanup
+- Seamless user experience without token expiration interruptions
 
 ## API Endpoints
 
@@ -103,12 +133,15 @@ This ensures consistent token handling across your application without implement
 ```typescript
 GET https://www.tone3000.com/api/v1/user
 
-// Response Type
-interface User {
+interface EmbeddedUser {
   id: string;
   username: string;
   avatar_url: string | null;
   url: string;
+}
+
+// Response Type
+interface User extends EmbeddedUser {
   bio: string | null;
   links: string[] | null;
   created_at: string;
@@ -121,6 +154,16 @@ interface User {
 #### Get Created Tones
 ```typescript
 GET https://www.tone3000.com/api/v1/tones/created?page=1&pageSize=10
+
+interface Make {
+  id: number;
+  name: string;
+}
+
+interface Tag {
+  id: number;
+  name: string;
+}
 
 // Response Type
 interface PaginatedResponse<Tone> {
@@ -234,17 +277,6 @@ enum Size {
   Custom = 'custom'
 }
 ```
-
-## Error Handling
-
-The API uses standard HTTP status codes:
-- 200: Success
-- 401: Unauthorized (invalid or expired token)
-- 403: Forbidden
-- 404: Not Found
-- 500: Server Error
-
-When a 401 error occurs, the `tone3000Fetch` utility will automatically attempt to refresh the token. If the refresh fails, the user will be redirected to the login page.
 
 ## Development
 

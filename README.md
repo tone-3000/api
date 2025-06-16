@@ -110,13 +110,13 @@ const data = await response.json() as Session;
    window.location.href = `https://www.tone3000.com/api/v1/auth?redirectUrl=${redirectUrl}`;
    ```
 
-#### Using the tone3000Fetch Utility
+#### Using the t3kFetch Utility
 
-The example `tone3000Fetch` utility handles all of this automatically, including proactive token refresh based on expiration time. Use it for all API requests:
+The example `t3kFetch` utility handles all of this automatically, including proactive token refresh based on expiration time. Use it for all API requests:
 
 ```typescript
 // Example: Fetching user data
-const response = await tone3000Fetch('https://www.tone3000.com/api/v1/user');
+const response = await t3kFetch('https://www.tone3000.com/api/v1/user');
 const userData = await response.json();
 ```
 

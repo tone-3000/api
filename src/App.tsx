@@ -121,7 +121,7 @@ interface Session {
 /**
  * Simple fetch wrapper that handles token refresh automatically
  */
-export async function tone3000Fetch(url: string): Promise<Response> {
+export async function t3kFetch(url: string): Promise<Response> {
   let accessToken = localStorage.getItem('tone3000_access_token')
   const expiresAt = parseInt(localStorage.getItem('tone3000_expires_at') || '0')
   
@@ -286,7 +286,7 @@ function App() {
 
   const handleGetTonesCreated = async () => {
     try {
-      const response = await tone3000Fetch(`${API_DOMAIN}/api/v1/tones/created?page=1&pageSize=10`)
+      const response = await t3kFetch(`${API_DOMAIN}/api/v1/tones/created?page=1&pageSize=10`)
 
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`)
@@ -303,7 +303,7 @@ function App() {
 
   const handleGetTonesFavorited = async () => {
     try {
-      const response = await tone3000Fetch(`${API_DOMAIN}/api/v1/tones/favorited?page=1&pageSize=10`)
+      const response = await t3kFetch(`${API_DOMAIN}/api/v1/tones/favorited?page=1&pageSize=10`)
 
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`)
@@ -320,7 +320,7 @@ function App() {
 
   const handleGetUser = async () => {
     try {
-      const response = await tone3000Fetch(`${API_DOMAIN}/api/v1/user`)
+      const response = await t3kFetch(`${API_DOMAIN}/api/v1/user`)
 
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`)
@@ -337,7 +337,7 @@ function App() {
 
   const handleGetModels = async (toneId: number) => {
     try {
-      const response = await tone3000Fetch(`${API_DOMAIN}/api/v1/models?toneId=${toneId}&page=1&pageSize=10`)
+      const response = await t3kFetch(`${API_DOMAIN}/api/v1/models?toneId=${toneId}&page=1&pageSize=10`)
 
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`)

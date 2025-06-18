@@ -6,7 +6,7 @@ const API_DOMAIN = import.meta.env.VITE_TONE3000_API_DOMAIN || 'https://www.tone
 const redirectUrl = encodeURIComponent('http://localhost:3001')
 
 // Enums
-enum GearType {
+enum Gear {
   Amp = 'amp',
   FullRig = 'full-rig',
   Pedal = 'pedal',
@@ -74,7 +74,7 @@ interface Tone {
   updated_at: string;
   title: string;
   description: string | null;
-  gear: GearType;
+  gear: Gear;
   images: string[] | null;
   is_public: boolean | null;
   links: string[] | null;

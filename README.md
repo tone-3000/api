@@ -1,6 +1,6 @@
 # TONE3000 API Integration Guide
 
-This project demonstrates how to integrate with the TONE3000 API. This guide will walk you through user authentication, session management, and available API endpoints. For the complete API documentation, visit [https://www.tone3000.com/api/docs](https://www.tone3000.com/api/docs).
+This project demonstrates how to integrate with the TONE3000 API. This guide will walk you through user authentication, session management, and available API endpoints. For the complete API documentation, visit [https://www.tone3000.com/api](https://www.tone3000.com/api).
 
 ## Environment Setup
 
@@ -182,7 +182,7 @@ interface Tone {
   updated_at: string;
   title: string;
   description: string | null;
-  gear: GearType;
+  gear: Gear;
   images: string[] | null;
   is_public: boolean | null;
   links: string[] | null;
@@ -233,7 +233,7 @@ interface Model {
 
 ### Gear Types
 ```typescript
-enum GearType {
+enum Gear {
   Amp = 'amp',
   FullRig = 'full-rig',
   Pedal = 'pedal',

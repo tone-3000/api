@@ -18,6 +18,20 @@ VITE_TONE3000_API_DOMAIN=https://www.tone3000.com
 
 The `VITE_` prefix is required for Vite to expose the environment variable to the client-side code.
 
+## Development
+
+1. Clone the repository
+2. Install dependencies:
+```bash
+npm install
+```
+3. Start the development server:
+```bash
+npm run dev
+```
+
+The application will be available at `http://localhost:3001`.
+
 ## Authentication
 
 ### Initial Setup
@@ -278,18 +292,3 @@ enum Size {
   Nano = 'nano',
   Custom = 'custom'
 }
-```
-
-## Development
-
-1. Clone the repository
-2. Install dependencies:
-```bash
-npm install
-```
-3. Start the development server:
-```bash
-npm run dev
-```
-
-The application will be available at `http://localhost:3001`.

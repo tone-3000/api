@@ -2,6 +2,8 @@
 
 This project demonstrates how to integrate with the TONE3000 API. This guide will walk you through user authentication, session management, and available API endpoints. For the complete API documentation, visit [https://www.tone3000.com/api](https://www.tone3000.com/api).
 
+![screenshot](https://raw.githubusercontent.com/tone-3000/t3k-api/refs/heads/main/src/assets/screenshot.png)
+
 ## Environment Setup
 
 1. Copy the example environment file:

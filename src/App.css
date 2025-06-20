@@ -10,18 +10,27 @@ body {
   color: #e0e0e0;
 }
 
+.app-header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+
 .app-container {
   display: flex;
   flex-direction: column;
-  justify-content: center;
+  /* justify-content: center; */
   align-items: center;
   min-height: 100vh;
   font-family: system-ui, -apple-system, sans-serif;
-  gap: 20px;
+  gap: 40px;
   width: 100%;
   max-width: 600px;
   margin: 0 auto;
   padding: 20px;
+  padding-top: 60px;
 }
 
 .button-group {
@@ -29,27 +38,34 @@ body {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 10px;
+  gap: 20px;
   width: 100%;
 }
 
 .button {
-  padding: 12px 24px;
+  padding: 16px 24px;
   font-size: 16px;
-  background-color: #1a1a1a;
-  color: #e0e0e0;
-  border: 1px solid #333;
-  border-radius: 4px;
+  color: white;
+  background: linear-gradient(180deg, #00f, #0000d0);
+  border: none;
+  border-radius: 12px;
   cursor: pointer;
-  transition: all 0.2s ease;
   width: 100%;
   max-width: 300px;
 }
 
-.button:hover {
-  background-color: #2a2a2a;
-  border-color: #444;
-  transform: translateY(-1px);
+.button-secondary {
+  background: none;
+  border: 1px solid white;
+}
+
+.app-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+  width: 100%;
 }
 
 .input-group {
@@ -61,19 +77,14 @@ body {
 }
 
 .input {
-  padding: 12px;
+  padding: 16px;
   font-size: 16px;
-  background-color: #1a1a1a;
+  background-color: transparent;
   color: #e0e0e0;
-  border: 1px solid #333;
-  border-radius: 4px;
+  border: 1px solid #3f3f46;
+  border-radius: 12px;
   outline: none;
   width: 100%;
-}
-
-.input:focus {
-  border-color: #444;
-  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.1);
 }
 
 .error-message {
@@ -84,15 +95,37 @@ body {
 }
 
 .data-display {
-  background-color: #1a1a1a;
+  background-color: #000020;
   padding: 20px;
-  border-radius: 4px;
+  border-radius: 12px;
   max-width: 100%;
   overflow: auto;
   margin-top: 20px;
-  border: 1px solid #333;
-  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+  border: 1px solid #0000D0;
+  font-family: monospace;
   font-size: 14px;
   line-height: 1.5;
-  color: #e0e0e0;
+  color: #addb67;
+}
+
+.t3k-api-logo-container {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+  text-decoration: none;
+
+  span {
+    color: #a1a1aa;
+    width: auto;
+  }
+}
+
+h1.app-title {
+  font-size: 48px;
+  color: white;
+  width: 100%;
+  text-align: center;
 }

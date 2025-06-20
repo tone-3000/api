@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import './App.css'
+import t3kLogo from './assets/t3k.svg'
 
 // API Domain from environment variable
 const API_DOMAIN = import.meta.env.VITE_TONE3000_API_DOMAIN || 'https://www.tone3000.com'
@@ -354,9 +355,16 @@ function App() {
 
   return (
     <div className="app-container">
-      {isLoggedIn ? (
+      <div className="app-header">
+        <h1 className="app-title">YOUR AWESOME APP</h1>
+        <a className="t3k-api-logo-container" href="https://www.tone3000.com/api" target="_blank" rel="noopener noreferrer">
+          <span>Powered by</span>
+          <img src={t3kLogo} alt="T3k API Logo" className="t3k-api-logo" style={{ width: '200px', height: 'auto' }} />
+        </a>
+      </div>
+      <div className="app-content">
+        {isLoggedIn ? (
         <>
-          <div className="button-group">Logged in</div>
           <div className="button-group">
             <button
               onClick={handleGetUser}
@@ -366,13 +374,13 @@ function App() {
             </button>
             <button
               onClick={handleGetTonesCreated}
-              className="button"
+              className="button button-secondary"
             >
               Get tones created
             </button>
             <button
               onClick={handleGetTonesFavorited}
-              className="button"
+              className="button button-secondary"
             >
               Get tones favorited
             </button>
@@ -386,7 +394,7 @@ function App() {
               />
               <button 
                 onClick={() => handleGetModels(toneId!)}
-                className="button"
+                className="button button-secondary"
               >
                 Get models
               </button>
@@ -411,6 +419,8 @@ function App() {
           Log in with TONE3000
         </button>
       )}
+      </div>
+      
     </div>
   )
 }

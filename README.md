@@ -245,6 +245,13 @@ interface Model {
 }
 ```
 
+Download via model URL `model.model_url`
+
+GET https://https://www.tone3000.com/api/v1/models/{modelId}/download/{filename}
+
+// Response type
+.nam or .wav file
+
 ## Enums
 
 ### Gear Types

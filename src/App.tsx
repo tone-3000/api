@@ -241,6 +241,7 @@ function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(false)
   const [data, setData] = useState<TonesResponse | ModelsResponse | User | null>(null)
   const [toneId, setToneId] = useState<number | null>(null)
+  const [modelUrl, setModelUrl] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
@@ -353,6 +354,28 @@ function App() {
     }
   }
 
+  const downloadModel = async (url: string) => {
+    try {
+      const response = await t3kFetch(url)
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`)
+      }
+
+      // download the model
+      const blob = await response.blob()
+      const _url = window.URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = _url
+      a.download = url.split('/').pop()!;
+      a.click()
+      window.URL.revokeObjectURL(_url)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to download model')
+      setData(null)
+    }
+  }
+
   return (
     <div className="app-container">
       <div className="app-header">
@@ -397,6 +420,21 @@ function App() {
                 className="button button-secondary"
               >
                 Get models
+              </button>
+            </div>
+            <div className="input-group">
+              <input 
+                type="text" 
+                value={modelUrl || ''} 
+                onChange={(e) => setModelUrl(e.target.value)}
+                className="input"
+                placeholder="Model URL"
+              />
+              <button
+                onClick={() => downloadModel(modelUrl!)}
+                className="button button-secondary"
+              >
+                Download
               </button>
             </div>
           </div>

@@ -156,7 +156,7 @@ export async function t3kFetch(url: string): Promise<Response> {
         localStorage.removeItem('tone3000_refresh_token')
         localStorage.removeItem('tone3000_expires_at')
         // Redirect to login
-        window.location.href = `${API_DOMAIN}/api/v1/auth?redirectUrl=${redirectUrl}`
+        window.location.href = `${API_DOMAIN}/api/v1/auth?redirect_url=${redirectUrl}`
         throw new Error('Token refresh failed')
       }
 
@@ -209,7 +209,7 @@ export async function t3kFetch(url: string): Promise<Response> {
         localStorage.removeItem('tone3000_refresh_token')
         localStorage.removeItem('tone3000_expires_at')
         // Redirect to login
-        window.location.href = `${API_DOMAIN}/api/v1/auth?redirectUrl=${redirectUrl}`
+        window.location.href = `${API_DOMAIN}/api/v1/auth?redirect_url=${redirectUrl}`
         throw new Error('Token refresh failed')
       }
 
@@ -243,6 +243,7 @@ function App() {
   const [toneId, setToneId] = useState<number | null>(null)
   const [modelUrl, setModelUrl] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [requireOtp, setRequireOtp] = useState(false)
 
   useEffect(() => {
     // Check for token in URL on component mount
@@ -283,7 +284,8 @@ function App() {
   }, [])
 
   const handleLogin = () => {
-    window.location.href = `${API_DOMAIN}/api/v1/auth?redirectUrl=${redirectUrl}`
+    const otpParam = requireOtp ? '&otp_only=true' : ''
+    window.location.href = `${API_DOMAIN}/api/v1/auth?redirect_url=${redirectUrl}${otpParam}`
   }
 
   const handleGetTonesCreated = async () => {
@@ -450,12 +452,27 @@ function App() {
           )}
         </>
       ) : (
-        <button
-          onClick={handleLogin}
-          className="button"
-        >
-          Log in with TONE3000
-        </button>
+        <div className="login-container">
+          <div className="login-form">
+            <button
+              onClick={handleLogin}
+              className="button"
+            >
+              Log in with TONE3000
+            </button>
+            <div className="checkbox-group">
+              <label className="checkbox-label">
+                <input
+                  type="checkbox"
+                  checked={requireOtp}
+                  onChange={(e) => setRequireOtp(e.target.checked)}
+                  className="checkbox"
+                />
+                Require OTP login
+              </label>
+            </div>
+          </div>
+        </div>
       )}
       </div>
       

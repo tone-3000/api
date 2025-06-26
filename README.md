@@ -39,8 +39,10 @@ The application will be available at `http://localhost:3001`.
 1. Redirect users to the TONE3000 authentication page:
 ```typescript
 const redirectUrl = encodeURIComponent(APP_URL);
-window.location.href = `https://www.tone3000.com/api/v1/auth?redirectUrl=${redirectUrl}`;
+window.location.href = `https://www.tone3000.com/api/v1/auth?redirect_url=${redirectUrl}`;
 ```
+
+*Note:* If your application only supports OTP authentication (e.g. IOT devices), include `otp_only=true` in the search parameters.
 
 2. After successful authentication, TONE3000 will redirect back to your application with an `api_key` parameter.
 
@@ -123,7 +125,7 @@ const data = await response.json() as Session;
    localStorage.removeItem('tone3000_access_token');
    localStorage.removeItem('tone3000_refresh_token');
    localStorage.removeItem('tone3000_expires_at');
-   window.location.href = `https://www.tone3000.com/api/v1/auth?redirectUrl=${redirectUrl}`;
+   window.location.href = `https://www.tone3000.com/api/v1/auth?redirect_url=${redirectUrl}`;
    ```
 
 #### Using the t3kFetch Utility

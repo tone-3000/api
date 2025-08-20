@@ -104,9 +104,9 @@ interface Model {
 interface PaginatedResponse<T> {
   data: T[];
   page: number;
-  pageSize: number;
+  page_size: number;
   total: number;
-  totalPages: number;
+  total_pages: number;
 }
 
 type TonesResponse = PaginatedResponse<Tone>;
@@ -290,7 +290,7 @@ function App() {
 
   const handleGetTonesCreated = async () => {
     try {
-      const response = await t3kFetch(`${API_DOMAIN}/api/v1/tones/created?page=1&pageSize=10`)
+      const response = await t3kFetch(`${API_DOMAIN}/api/v1/tones/created?page=1&page_size=10`)
 
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`)
@@ -307,7 +307,7 @@ function App() {
 
   const handleGetTonesFavorited = async () => {
     try {
-      const response = await t3kFetch(`${API_DOMAIN}/api/v1/tones/favorited?page=1&pageSize=10`)
+      const response = await t3kFetch(`${API_DOMAIN}/api/v1/tones/favorited?page=1&page_size=10`)
 
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`)
@@ -341,7 +341,7 @@ function App() {
 
   const handleGetModels = async (toneId: number) => {
     try {
-      const response = await t3kFetch(`${API_DOMAIN}/api/v1/models?toneId=${toneId}&page=1&pageSize=10`)
+      const response = await t3kFetch(`${API_DOMAIN}/api/v1/models?tone_id=${toneId}&page=1&page_size=10`)
 
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`)

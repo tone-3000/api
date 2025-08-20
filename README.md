@@ -171,7 +171,7 @@ interface User extends EmbeddedUser {
 
 #### Get Created Tones
 ```typescript
-GET https://www.tone3000.com/api/v1/tones/created?page=1&pageSize=10
+GET https://www.tone3000.com/api/v1/tones/created?page=1&page_size=10
 
 interface Make {
   id: number;
@@ -187,9 +187,9 @@ interface Tag {
 interface PaginatedResponse<Tone> {
   data: Tone[];
   page: number;
-  pageSize: number;
+  page_size: number;
   total: number;
-  totalPages: number;
+  total_pages: number;
 }
 
 interface Tone {
@@ -218,21 +218,21 @@ interface Tone {
 
 #### Get Favorited Tones
 ```typescript
-GET https://www.tone3000.com/api/v1/tones/favorited?page=1&pageSize=10
+GET https://www.tone3000.com/api/v1/tones/favorited?page=1&page_size=10
 ```
 
 ### Models
 
 ```typescript
-GET https://www.tone3000.com/api/v1/models?toneId={toneId}&page=1&pageSize=10
+GET https://www.tone3000.com/api/v1/models?tone_id={toneId}&page=1&page_size=10
 
 // Response Type
 interface PaginatedResponse<Model> {
   data: Model[];
   page: number;
-  pageSize: number;
+  page_size: number;
   total: number;
-  totalPages: number;
+  total_pages: number;
 }
 
 interface Model {

@@ -240,6 +240,7 @@ export async function t3kFetch(url: string): Promise<Response> {
 function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(false)
   const [data, setData] = useState<TonesResponse | ModelsResponse | User | null>(null)
+  const [searchQuery, setSearchQuery] = useState<string>('')
   const [toneId, setToneId] = useState<number | null>(null)
   const [modelUrl, setModelUrl] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -356,6 +357,23 @@ function App() {
     }
   }
 
+  const handleSearch = async (query: string) => {
+    try {
+      const response = await t3kFetch(`${API_DOMAIN}/api/v1/tones/search?query=${query}`)
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`)
+      }
+
+      const data = await response.json() as TonesResponse
+      setData(data)
+      setError(null)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to search')
+      setData(null)
+    }
+  }
+
   const downloadModel = async (url: string) => {
     try {
       const response = await t3kFetch(url)
@@ -409,6 +427,21 @@ function App() {
             >
               Get tones favorited
             </button>
+            <div className="input-group">
+              <input 
+                type="text" 
+                value={searchQuery || ''} 
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="input"
+                placeholder="Search Query"
+              />
+              <button
+                onClick={() => handleSearch(searchQuery!)}
+                className="button button-secondary"
+              >
+                Search
+              </button>
+            </div>
             <div className="input-group">
               <input 
                 type="number" 

@@ -359,7 +359,7 @@ function App() {
 
   const handleSearch = async (query: string) => {
     try {
-      const response = await t3kFetch(`${API_DOMAIN}/api/v1/tones/search?query=${query}`)
+      const response = await t3kFetch(`${API_DOMAIN}/api/v1/tones/search?query=${encodeURIComponent(query)}`)
 
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`)

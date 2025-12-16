@@ -4,7 +4,9 @@ import t3kLogo from './assets/t3k.svg'
 
 // API Domain from environment variable
 const API_DOMAIN = import.meta.env.VITE_TONE3000_API_DOMAIN || 'https://www.tone3000.com'
-const redirectUrl = encodeURIComponent('http://localhost:3001')
+const redirectUrl = import.meta.env.VITE_REDIRECT_URL || encodeURIComponent('http://localhost:3001')
+
+const appId = import.meta.env.VITE_APP_ID || 'my-awesome-app'
 
 // Enums
 enum Gear {
@@ -111,6 +113,7 @@ interface PaginatedResponse<T> {
 
 type TonesResponse = PaginatedResponse<Tone>;
 type ModelsResponse = PaginatedResponse<Model>;
+type SelectResponse = Tone & { models: Model[] }
 
 interface Session {
   access_token: string;
@@ -237,7 +240,10 @@ export async function t3kFetch(url: string): Promise<Response> {
   return response
 }
 
+type FlowType = 'none' | 'select' | 'full-auth'
+
 function App() {
+  const [flowType, setFlowType] = useState<FlowType>('none')
   const [isLoggedIn, setIsLoggedIn] = useState(false)
   const [data, setData] = useState<TonesResponse | ModelsResponse | User | null>(null)
   const [searchQuery, setSearchQuery] = useState<string>('')
@@ -245,11 +251,13 @@ function App() {
   const [modelUrl, setModelUrl] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [requireOtp, setRequireOtp] = useState(false)
+  const [selectData, setSelectData] = useState<SelectResponse | null>(null)
 
   useEffect(() => {
     // Check for token in URL on component mount
     const params = new URLSearchParams(window.location.search)
     const apiKey = params.get('api_key')
+    const toneUrl = params.get('tone_url')
 
     const handleAuth = async () => {
       // handshake with tone3000 to get session access token and refresh token
@@ -268,6 +276,7 @@ function App() {
       localStorage.setItem('tone3000_refresh_token', data.refresh_token)
       localStorage.setItem('tone3000_expires_at', String(Date.now() + (data.expires_in * 1000)))
       setIsLoggedIn(true)
+      setFlowType('full-auth')
       // Clean up the URL
       window.history.replaceState({}, document.title, window.location.pathname)
     }
@@ -280,13 +289,50 @@ function App() {
       const storedToken = localStorage.getItem('tone3000_access_token')
       if (storedToken) {
         setIsLoggedIn(true)
+        setFlowType('full-auth')
       }
+    }
+
+    const handleSelect = async (toneUrl: string) => {
+      const response = await fetch(toneUrl)
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`)
+      }
+      const data = await response.json() as SelectResponse
+      setSelectData(data)
+      setFlowType('select')
+    }
+
+    if (toneUrl) {
+      handleSelect(toneUrl)
     }
   }, [])
 
   const handleLogin = () => {
     const otpParam = requireOtp ? '&otp_only=true' : ''
     window.location.href = `${API_DOMAIN}/api/v1/auth?redirect_url=${redirectUrl}${otpParam}`
+  }
+
+  const handleSelectTone = async () => {
+    window.location.href = `${API_DOMAIN}/api/v1/select?redirect_url=${redirectUrl}&app_id=${appId}`
+  }
+
+  const handleLogout = () => {
+    localStorage.removeItem('tone3000_access_token')
+    localStorage.removeItem('tone3000_refresh_token')
+    localStorage.removeItem('tone3000_expires_at')
+    setIsLoggedIn(false)
+    setData(null)
+    setError(null)
+    setSelectData(null)
+    setFlowType('none')
+  }
+
+  const handleBackToStart = () => {
+    setFlowType('none')
+    setSelectData(null)
+    setData(null)
+    setError(null)
   }
 
   const handleGetTonesCreated = async () => {
@@ -406,109 +452,207 @@ function App() {
         </a>
       </div>
       <div className="app-content">
-        {isLoggedIn ? (
-        <>
-          <div className="button-group">
-            <button
-              onClick={handleGetUser}
-              className="button"
-            >
-              Get user
-            </button>
-            <button
-              onClick={handleGetTonesCreated}
-              className="button button-secondary"
-            >
-              Get tones created
-            </button>
-            <button
-              onClick={handleGetTonesFavorited}
-              className="button button-secondary"
-            >
-              Get tones favorited
-            </button>
-            <div className="input-group">
-              <input 
-                type="text" 
-                value={searchQuery || ''} 
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="input"
-                placeholder="Search Query"
-              />
+        {flowType === 'none' ? (
+          <div className="flow-selection">
+            <div className="flow-option">
+              <h2 className="flow-title">Select Flow</h2>
+              <p className="flow-description">
+                Low-code OAuth-like integration. Users authenticate and browse tones through TONE3000's interface,
+                then your app receives the complete tone data with downloadable models.
+              </p>
+              <ul className="flow-features">
+                <li>No authentication UI to build</li>
+                <li>No browsing UI needed</li>
+                <li>Quick integration</li>
+                <li>Perfect for plugins & native apps</li>
+              </ul>
               <button
-                onClick={() => handleSearch(searchQuery!)}
-                className="button button-secondary"
+                onClick={handleSelectTone}
+                className="button"
               >
-                Search
+                Use Select Flow
               </button>
             </div>
-            <div className="input-group">
-              <input 
-                type="number" 
-                value={toneId?.toString() || ''} 
-                onChange={(e) => setToneId(Number(e.target.value))}
-                className="input"
-                placeholder="Tone ID"
-              />
-              <button 
-                onClick={() => handleGetModels(toneId!)}
-                className="button button-secondary"
-              >
-                Get models
-              </button>
+
+            <div className="separator">
+              <p>Or</p>
             </div>
-            <div className="input-group">
-              <input 
-                type="text" 
-                value={modelUrl || ''} 
-                onChange={(e) => setModelUrl(e.target.value)}
-                className="input"
-                placeholder="Model URL"
-              />
+
+            <div className="flow-option">
+              <h2 className="flow-title">Full API Access</h2>
+              <p className="flow-description">
+                Complete programmatic control over the user experience. Authenticate users and use API
+                endpoints to query profiles, search tones, and access model data.
+              </p>
+              <ul className="flow-features">
+                <li>Full control over UX</li>
+                <li>Custom browsing interface</li>
+                <li>Access to all API endpoints</li>
+                <li>Search, filter, and manage tones</li>
+              </ul>
               <button
-                onClick={() => downloadModel(modelUrl!)}
-                className="button button-secondary"
+                onClick={() => setFlowType('full-auth')}
+                className="button"
               >
-                Download
+                Use Full API Access
               </button>
             </div>
           </div>
-          {error && (
-            <div className="error-message">
-              Error: {error}
+        ) : flowType === 'select' ? (
+          <div className="flow-content">
+            <div className="flow-header">
+              <h2 className="flow-active-title">Select Flow</h2>
+              <button onClick={handleBackToStart} className="button button-secondary button-small">
+                ← Back to Start
+              </button>
             </div>
-          )}
-          {data && (
-            <pre className="data-display">
-              {JSON.stringify(data, null, 2)}
-            </pre>
-          )}
-        </>
-      ) : (
-        <div className="login-container">
-          <div className="login-form">
-            <button
-              onClick={handleLogin}
-              className="button"
-            >
-              Log in with TONE3000
-            </button>
-            <div className="checkbox-group">
-              <label className="checkbox-label">
-                <input
-                  type="checkbox"
-                  checked={requireOtp}
-                  onChange={(e) => setRequireOtp(e.target.checked)}
-                  className="checkbox"
-                />
-                Require OTP login
-              </label>
-            </div>
+            {selectData ? (
+              <>
+                <div className="success-message">
+                  ✓ Tone selected successfully!
+                </div>
+                <pre className="data-display">
+                  {JSON.stringify(selectData, null, 2)}
+                </pre>
+                <button onClick={handleSelectTone} className="button">
+                  Select Another Tone
+                </button>
+              </>
+            ) : (
+              <div className="flow-instructions">
+                <p>Click the button below to open TONE3000's tone selector.</p>
+                <p>You'll be able to browse and select a tone, then return here with the tone data.</p>
+                <button onClick={handleSelectTone} className="button">
+                  Select a Tone
+                </button>
+              </div>
+            )}
           </div>
-        </div>
-      )}
+        ) : flowType === 'full-auth' ? (
+          <div className="flow-content">
+            {!isLoggedIn ? (
+              <>
+                <div className="flow-header">
+                  <h2 className="flow-active-title">Full API Access</h2>
+                  <button onClick={handleBackToStart} className="button button-secondary button-small">
+                    ← Back to Start
+                  </button>
+                </div>
+                <div className="login-container">
+                  <p className="flow-instructions-text">First, authenticate with TONE3000 to access the full API.</p>
+                  <button
+                    onClick={handleLogin}
+                    className="button"
+                  >
+                    Log in with TONE3000
+                  </button>
+                  <div className="checkbox-group">
+                    <label className="checkbox-label">
+                      <input
+                        type="checkbox"
+                        checked={requireOtp}
+                        onChange={(e) => setRequireOtp(e.target.checked)}
+                        className="checkbox"
+                      />
+                      Require OTP login
+                    </label>
+                  </div>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="flow-header">
+                  <h2 className="flow-active-title">Full API Access</h2>
+                  <button onClick={handleBackToStart} className="button button-secondary button-small">
+                    ← Back to Start
+                  </button>
+                </div>
+                <div className="button-group">
+                  <button
+                    onClick={handleGetUser}
+                    className="button"
+                  >
+                    Get user
+                  </button>
+                  <button
+                    onClick={handleGetTonesCreated}
+                    className="button button-secondary"
+                  >
+                    Get tones created
+                  </button>
+                  <button
+                    onClick={handleGetTonesFavorited}
+                    className="button button-secondary"
+                  >
+                    Get tones favorited
+                  </button>
+                  <div className="input-group">
+                    <input 
+                      type="text" 
+                      value={searchQuery || ''} 
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="input"
+                      placeholder="Search Query"
+                    />
+                    <button
+                      onClick={() => handleSearch(searchQuery!)}
+                      className="button button-secondary"
+                    >
+                      Search
+                    </button>
+                  </div>
+                  <div className="input-group">
+                    <input 
+                      type="number" 
+                      value={toneId?.toString() || ''} 
+                      onChange={(e) => setToneId(Number(e.target.value))}
+                      className="input"
+                      placeholder="Tone ID"
+                    />
+                    <button 
+                      onClick={() => handleGetModels(toneId!)}
+                      className="button button-secondary"
+                    >
+                      Get models
+                    </button>
+                  </div>
+                  <div className="input-group">
+                    <input 
+                      type="text" 
+                      value={modelUrl || ''} 
+                      onChange={(e) => setModelUrl(e.target.value)}
+                      className="input"
+                      placeholder="Model URL"
+                    />
+                    <button
+                      onClick={() => downloadModel(modelUrl!)}
+                      className="button button-secondary"
+                    >
+                      Download
+                    </button>
+                  </div>
+                  <button
+                    onClick={handleLogout}
+                    className="button button-secondary"
+                  >
+                    Logout
+                  </button>
+                </div>
+                {error && (
+                  <div className="error-message">
+                    Error: {error}
+                  </div>
+                )}
+                {data && (
+                  <pre className="data-display">
+                    {JSON.stringify(data, null, 2)}
+                  </pre>
+                )}
+              </>
+            )}
+          </div>
+        ) : null}
       </div>
-      
     </div>
   )
 }

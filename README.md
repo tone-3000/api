@@ -1,8 +1,26 @@
 # TONE3000 API Integration Guide
 
-This project demonstrates how to integrate with the TONE3000 API. This guide will walk you through user authentication, session management, and available API endpoints. For the complete API documentation, visit [https://www.tone3000.com/api](https://www.tone3000.com/api).
+This project demonstrates how to integrate with the TONE3000 API. TONE3000 offers two integration options: a low-code **Select** flow for quick integrations, or **Full API Access** for complete control. For the complete API documentation, visit [https://www.tone3000.com/api](https://www.tone3000.com/api).
 
 ![screenshot](https://raw.githubusercontent.com/tone-3000/t3k-api/refs/heads/main/src/assets/screenshot.png)
+
+## Integration Options
+
+### Select Flow (Low-Code)
+The fastest way to integrate TONE3000. An OAuth-like flow that handles authentication and tone browsing through TONE3000's interface.
+
+**Best for:**
+- Quick integrations
+- Plugins and native apps
+- Apps that don't need custom browsing UI
+
+### Full API Access
+Complete programmatic control over the user experience with access to all API endpoints.
+
+**Best for:**
+- Custom user experiences
+- Advanced filtering and search
+- Apps that need to manage user content
 
 ## Environment Setup
 
@@ -32,7 +50,60 @@ npm run dev
 
 The application will be available at `http://localhost:3001`.
 
-## Authentication
+## Select Flow
+
+The Select flow is an OAuth-like integration that handles authentication and tone selection through TONE3000's interface. Your app simply redirects users to TONE3000 and receives complete tone data when they return.
+
+### Step 1: Redirect to Select Page
+
+Redirect users to the TONE3000 select page with your app details:
+
+```typescript
+const appId = 'your-awesome-app';
+const redirectUrl = encodeURIComponent('https://your-app.com/callback');
+
+// Redirect user to TONE3000 select page
+window.location.href = `https://www.tone3000.com/api/v1/select?app_id=${appId}&redirect_url=${redirectUrl}`;
+```
+
+**For Native Apps (iOS/Android):** Launch the select URL in an in-app browser (e.g., SFSafariViewController on iOS, Chrome Custom Tabs on Android). Use a deep link URL (e.g., `yourapp://callback`) as your `redirect_url`.
+
+### Step 2: User Authentication & Selection
+
+On the TONE3000 select page, users will:
+1. Login or create an account via OTP email code (if not already authenticated)
+2. Browse and search public tones and their own private tones
+3. Select a tone by clicking on it
+
+### Step 3: Handle Callback & Fetch Tone Data
+
+After selection, TONE3000 redirects back to your `redirect_url` with a `tone_url` query parameter. Fetch the tone data from this URL:
+
+```typescript
+// On your callback page
+const urlParams = new URLSearchParams(window.location.search);
+const toneUrl = urlParams.get('tone_url');
+
+if (toneUrl) {
+  // Fetch the tone data (includes models with download URLs)
+  const response = await fetch(toneUrl);
+  const tone = await response.json();
+  
+  console.log('Selected tone:', tone.title);
+  console.log('Models:', tone.models);
+  
+  // Load the tone into your application
+  loadTone(tone);
+}
+```
+
+**Response Type:** `Tone & { models: Model[] }`
+
+The response includes the complete tone object with an embedded `models` array containing pre-signed downloadable URLs.
+
+**For Native Apps:** Configure your app to handle the deep link URL scheme. When your app is launched via the deep link, parse the `tone_url` parameter and make an HTTP request from your native code to fetch the tone data.
+
+## Full API Access - Authentication
 
 ### Initial Setup
 
@@ -144,7 +215,7 @@ This ensures consistent token handling across your application, including:
 - Proper token storage and cleanup
 - Seamless user experience without token expiration interruptions
 
-## API Endpoints
+## Full API Access - Endpoints
 
 ### User Information
 
@@ -221,6 +292,74 @@ interface Tone {
 GET https://www.tone3000.com/api/v1/tones/favorited?page=1&page_size=10
 ```
 
+#### Search Tones
+Search and filter tones with various options:
+
+```typescript
+GET https://www.tone3000.com/api/v1/tones/search?query=fender&page=1&page_size=10&sort=best-match&gear=amp&sizes=standard,lite
+
+// Query Parameters
+interface SearchParams {
+  query?: string;        // Search query term (optional)
+  page?: number;         // Page number (default: 1)
+  page_size?: number;    // Items per page (default: 10, max: 25)
+  sort?: TonesSort;      // Sort order (default: 'best-match' if query provided, else 'trending')
+  gear?: Gear[];         // Filter by gear type (comma-separated)
+  sizes?: Size[];        // Filter by model sizes (comma-separated)
+}
+
+// Sort Options
+enum TonesSort {
+  BestMatch = 'best-match',
+  Newest = 'newest',
+  Oldest = 'oldest',
+  Trending = 'trending',
+  DownloadsAllTime = 'downloads-all-time'
+}
+```
+
+**Response Type:** `PaginatedResponse<Tone[]>`
+
+### Users
+
+Get a list of users with public content, sorted by various metrics:
+
+```typescript
+GET https://www.tone3000.com/api/v1/users?sort=tones&page=1&page_size=10
+
+// Query Parameters
+interface UsersParams {
+  sort?: UsersSort;      // Sort users by stat (default: 'tones')
+  page?: number;         // Page number (default: 1)
+  page_size?: number;    // Items per page (default: 10, max: 10)
+  query?: string;        // Search query to filter users by username
+}
+
+// Sort Options
+enum UsersSort {
+  Tones = 'tones',
+  Downloads = 'downloads',
+  Favorites = 'favorites',
+  Models = 'models'
+}
+
+// Response Type
+interface PublicUser {
+  id: number;
+  username: string;
+  bio: string | null;
+  links: string[] | null;
+  avatar_url: string | null;
+  downloads_count: number;
+  favorites_count: number;
+  models_count: number;
+  tones_count: number;
+  url: string;
+}
+```
+
+**Response Type:** `PaginatedResponse<PublicUser[]>`
+
 ### Models
 
 ```typescript
@@ -247,12 +386,33 @@ interface Model {
 }
 ```
 
-Download via model URL `model.model_url`
+#### Downloading Models
 
-GET https://https://www.tone3000.com/api/v1/models/{modelId}/download/{filename}
+Use the `model_url` field to download model files. Include the access token in the Authorization header:
 
-// Response type
-.nam or .wav file
+```typescript
+const response = await fetch(model.model_url, {
+  headers: {
+    'Authorization': `Bearer ${accessToken}`
+  }
+});
+
+if (!response.ok) {
+  throw new Error('Failed to download model');
+}
+
+const blob = await response.blob();
+const url = window.URL.createObjectURL(blob);
+const a = document.createElement('a');
+a.href = url;
+a.download = model.name;
+document.body.appendChild(a);
+a.click();
+window.URL.revokeObjectURL(url);
+document.body.removeChild(a);
+```
+
+**Response Type:** `.nam` or `.wav` file
 
 ## Enums
 
@@ -301,3 +461,12 @@ enum Size {
   Nano = 'nano',
   Custom = 'custom'
 }
+```
+
+## Rate Limiting
+
+The API has a rate limit of **100 requests per minute** by default. For production applications that need higher limits, please email support@tone3000.com.
+
+## Support & Feedback
+
+Questions, issues, or feedback? Contact support@tone3000.com - we'd love to hear from you!

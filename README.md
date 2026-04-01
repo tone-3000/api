@@ -1,26 +1,30 @@
 # TONE3000 API Integration Guide
 
-This project demonstrates how to integrate with the TONE3000 API. TONE3000 offers two integration options: a low-code **Select** flow for quick integrations, or **Full API Access** for complete control. For the complete API documentation, visit [https://www.tone3000.com/api](https://www.tone3000.com/api).
+This project demonstrates how to integrate with the TONE3000 API. TONE3000 offers four integration patterns — two new OAuth PKCE flows (recommended) and two legacy flows for backwards compatibility. For the complete API documentation, visit [https://www.tone3000.com/api](https://www.tone3000.com/api).
+
+For a detailed integration guide including server-side (secret key) usage, see [INTEGRATION.md](./INTEGRATION.md).
 
 ![screenshot](https://raw.githubusercontent.com/tone-3000/t3k-api/refs/heads/main/src/assets/screenshot.png)
 
 ## Integration Options
 
-### Select Flow (Low-Code)
-The fastest way to integrate TONE3000. An OAuth-like flow that handles authentication and tone browsing through TONE3000's interface.
+### OAuth Select Flow *(New — recommended)*
+User browses the TONE3000 catalogue and picks a tone. The selected `tone_id` comes back in the OAuth callback alongside an auth code. Uses PKCE — no secret stored in the client.
 
-**Best for:**
-- Quick integrations
-- Plugins and native apps
-- Apps that don't need custom browsing UI
+**Best for:** Plugins, DAW integrations, apps where TONE3000 controls tone discovery.
 
-### Full API Access
-Complete programmatic control over the user experience with access to all API endpoints.
+### OAuth Standard Flow *(New — recommended)*
+User connects their TONE3000 account once. Your app then fetches tones programmatically using stored tokens — no redirect on return visits.
 
-**Best for:**
-- Custom user experiences
-- Advanced filtering and search
-- Apps that need to manage user content
+**Best for:** Apps with their own tone browsing UI, server-side integrations.
+
+### Select Flow *(Legacy)*
+Redirects to TONE3000 with an `app_id`. Returns a `tone_url` directly. Simpler but exposes no tokens — suitable for one-shot tone loading only.
+
+### Full API Access *(Legacy)*
+Redirects to TONE3000 auth, receives a raw `api_key` in the callback, then exchanges it for tokens. Replaced by the OAuth Standard flow above.
+
+---
 
 ## Environment Setup
 
@@ -29,26 +33,82 @@ Complete programmatic control over the user experience with access to all API en
 cp env.example .env
 ```
 
-2. Configure your environment variables in `.env`:
+2. Configure your `.env`:
 ```
+# Required for all flows
 VITE_TONE3000_API_DOMAIN=https://www.tone3000.com
+
+# Legacy flows only
+VITE_REDIRECT_URL=http://localhost:3001
+VITE_APP_ID=my-awesome-app
+
+# New OAuth PKCE flows — get these from your TONE3000 settings page
+VITE_PUBLISHABLE_KEY=t3k_pub_your_key_here
+VITE_OAUTH_REDIRECT_URI=http://localhost:3001
 ```
 
-The `VITE_` prefix is required for Vite to expose the environment variable to the client-side code.
+The `VITE_` prefix is required for Vite to expose variables to client-side code.
+
+### Getting your publishable key
+
+1. Log in to [tone3000.com](https://www.tone3000.com)
+2. Go to **Settings → API Keys**
+3. Click **Create API Key** — you'll receive a `t3k_pub_…` publishable key and a one-time `t3k_cs_…` secret key
+4. Copy the publishable key into `VITE_PUBLISHABLE_KEY`
+
+The publishable key is safe to embed in frontend code. The secret key is for server-side use only — never put it in a Vite env var.
+
+---
 
 ## Development
 
-1. Clone the repository
-2. Install dependencies:
+1. Install dependencies:
 ```bash
 npm install
 ```
-3. Start the development server:
+
+2. Start the development server:
 ```bash
 npm run dev
 ```
 
 The application will be available at `http://localhost:3001`.
+
+---
+
+## Testing Against Local TONE3000
+
+To test the OAuth flows against a locally running tone3000 instance:
+
+1. **Start local Supabase** (from the tone3000 repo):
+```bash
+cd ../tone3000
+supabase start
+supabase migration up   # ensure OAuth migration is applied
+```
+
+2. **Start the tone3000 Next.js app:**
+```bash
+npm run dev   # runs on http://localhost:3000
+```
+
+3. **Point the example app at localhost** — set in `.env`:
+```
+VITE_TONE3000_API_DOMAIN=http://localhost:3000
+```
+
+4. **Create a key locally** — log in at `http://localhost:3000`, go to Settings → API Keys, create a key, and copy the `t3k_pub_…` value into `VITE_PUBLISHABLE_KEY`.
+
+5. **No redirect URI registration needed for localhost** — the authorize endpoint bypasses the allowlist for `localhost` and `127.0.0.1` (PKCE still protects the exchange).
+
+6. **Make sure you're logged in** at `http://localhost:3000` in the same browser before triggering an OAuth flow — the authorize endpoint checks for an active session cookie and skips the login screen if one exists.
+
+7. **Start the example app** (separate terminal):
+```bash
+npm run dev   # http://localhost:3001
+```
+
+Then open `http://localhost:3001` and test any of the four flows.
 
 ## Select Flow
 

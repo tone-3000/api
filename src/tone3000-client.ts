@@ -83,16 +83,102 @@ function buildAuthorizeUrl(
  * with an authorization code and the selected `tone_id`.
  *
  * @param gears - Optional underscore-separated gear filter (e.g. 'amp_pedal')
+ * @param platform - Optional platform filter (e.g. 'nam', 'aida-x')
  */
 export async function startSelectFlow(
   publishableKey: string,
   redirectUri: string,
-  options?: { gears?: string }
+  options?: { gears?: string; platform?: string }
 ): Promise<void> {
   const pkce = await buildPkceParams();
   const extra: Record<string, string> = { prompt: 'select_tone' };
   if (options?.gears) extra.gears = options.gears;
+  if (options?.platform) extra.platform = options.platform;
   window.location.href = buildAuthorizeUrl(publishableKey, redirectUri, extra, pkce);
+}
+
+/**
+ * **Select Flow (Popup)** — Open TONE3000 tone browsing and selection in a popup window.
+ *
+ * Same as `startSelectFlow` but opens in a popup. The user stays on your app while
+ * browsing TONE3000. When a tone is selected, the popup relays the result back via
+ * `postMessage` or `BroadcastChannel` — handle it with `handleOAuthCallbackFromPopup`.
+ */
+export async function startSelectFlowPopup(
+  publishableKey: string,
+  redirectUri: string,
+  options?: { gears?: string; platform?: string }
+): Promise<Window | null> {
+  // Set before window.open so the popup inherits this flag via sessionStorage copy;
+  // remove it from the parent immediately so only the popup retains it.
+  sessionStorage.setItem('t3k_popup_mode', '1');
+  const pkce = await buildPkceParams();
+  const extra: Record<string, string> = { prompt: 'select_tone' };
+  if (options?.gears) extra.gears = options.gears;
+  if (options?.platform) extra.platform = options.platform;
+  const url = buildAuthorizeUrl(publishableKey, redirectUri, extra, pkce);
+
+  const width = 480;
+  const height = 700;
+  const left = Math.round(window.screenX + (window.outerWidth - width) / 2);
+  const top = Math.round(window.screenY + (window.outerHeight - height) / 2);
+  const popup = window.open(url, 't3k_select', `width=${width},height=${height},left=${left},top=${top},toolbar=no,menubar=no,location=no,status=no,resizable=yes,scrollbars=yes`);
+  sessionStorage.removeItem('t3k_popup_mode');
+  return popup;
+}
+
+/**
+ * Handle an OAuth callback relayed from a select popup.
+ *
+ * Pass events from both a `message` listener and a `BroadcastChannel('t3k_oauth')`
+ * listener to this function. Returns `null` if the event is not a TONE3000 callback.
+ * Verifies state, exchanges the code for tokens, and returns the same result shape
+ * as `handleOAuthCallback`.
+ */
+export async function handleOAuthCallbackFromPopup(
+  publishableKey: string,
+  redirectUri: string,
+  event: MessageEvent
+): Promise<OAuthCallbackResult | null> {
+  if (event.data?.type !== 't3k_oauth_callback') return null;
+
+  const { code, state: returnedState, error, tone_id: toneId, model_id: modelId } = event.data;
+
+  const storedState = sessionStorage.getItem('t3k_state');
+  const codeVerifier = sessionStorage.getItem('t3k_code_verifier');
+
+  sessionStorage.removeItem('t3k_state');
+  sessionStorage.removeItem('t3k_code_verifier');
+
+  if (returnedState !== storedState) return { ok: false, error: 'state_mismatch' };
+  if (error) return { ok: false, error };
+  if (!code || !codeVerifier) return { ok: false, error: 'missing_code' };
+
+  const res = await fetch(`${T3K_API}/api/v1/oauth/token`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({
+      grant_type: 'authorization_code',
+      code,
+      code_verifier: codeVerifier,
+      redirect_uri: redirectUri,
+      client_id: publishableKey,
+    }),
+  });
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    return { ok: false, error: (err as any).error ?? 'token_exchange_failed' };
+  }
+
+  const data = await res.json();
+  const tokens: T3KTokens = {
+    access_token: data.access_token,
+    refresh_token: data.refresh_token,
+    expires_at: Date.now() + data.expires_in * 1000,
+  };
+
+  return { ok: true, tokens, toneId, modelId };
 }
 
 /**
@@ -104,19 +190,54 @@ export async function startSelectFlow(
  *
  * If the tone is private or has been deleted, TONE3000 shows an error page
  * where the user can browse for a replacement. In that case, the `tone_id` in
- * the callback may differ from the one you requested.
+ * the callback may differ from the one you requested. Any `gears` or `platform`
+ * filters you pass are applied to that replacement browse view.
+ *
+ * @param gears - Optional underscore-separated gear filter (e.g. 'amp_full-rig')
+ * @param platform - Optional platform filter (e.g. 'nam', 'aida-x')
  */
 export async function startLoadToneFlow(
   publishableKey: string,
   redirectUri: string,
-  toneId: number | string
+  toneId: number | string,
+  options?: { gears?: string; platform?: string }
 ): Promise<void> {
   const pkce = await buildPkceParams();
-  window.location.href = buildAuthorizeUrl(
-    publishableKey, redirectUri,
-    { prompt: 'load_tone', tone_id: String(toneId) },
-    pkce
-  );
+  const extra: Record<string, string> = { prompt: 'load_tone', tone_id: String(toneId) };
+  if (options?.gears) extra.gears = options.gears;
+  if (options?.platform) extra.platform = options.platform;
+  window.location.href = buildAuthorizeUrl(publishableKey, redirectUri, extra, pkce);
+}
+
+/**
+ * **Load Tone Flow (Popup)** — Open TONE3000 in a popup to authenticate and load a specific tone.
+ *
+ * Same as `startLoadToneFlow` but opens in a popup. When the flow completes, the
+ * popup relays the result back via `postMessage` or `BroadcastChannel` — handle it
+ * with `handleOAuthCallbackFromPopup`. Any `gears` or `platform` filters you pass
+ * are applied if the user needs to browse for a replacement tone.
+ */
+export async function startLoadToneFlowPopup(
+  publishableKey: string,
+  redirectUri: string,
+  toneId: number | string,
+  options?: { gears?: string; platform?: string }
+): Promise<Window | null> {
+  // Set before window.open so the popup inherits this flag via sessionStorage copy;
+  // remove it from the parent immediately so only the popup retains it.
+  sessionStorage.setItem('t3k_popup_mode', '1');
+  const pkce = await buildPkceParams();
+  const extra: Record<string, string> = { prompt: 'load_tone', tone_id: String(toneId) };
+  if (options?.gears) extra.gears = options.gears;
+  if (options?.platform) extra.platform = options.platform;
+  const url = buildAuthorizeUrl(publishableKey, redirectUri, extra, pkce);
+  const width = 480;
+  const height = 700;
+  const left = Math.round(window.screenX + (window.outerWidth - width) / 2);
+  const top = Math.round(window.screenY + (window.outerHeight - height) / 2);
+  const popup = window.open(url, 't3k_load_tone', `width=${width},height=${height},left=${left},top=${top},toolbar=no,menubar=no,location=no,status=no,resizable=yes,scrollbars=yes`);
+  sessionStorage.removeItem('t3k_popup_mode');
+  return popup;
 }
 
 /**
@@ -356,10 +477,10 @@ export class T3KClient {
   }
 
   /**
-   * Get a tone by ID. The response includes an embedded `models` array
-   * with pre-signed download URLs for each model file.
+   * Get a tone by ID. Returns tone metadata only — models are not embedded.
+   * To get download URLs, call `listModels(tone.id)` after fetching the tone.
    */
-  async getTone(id: number | string): Promise<Tone & { models: Model[] }> {
+  async getTone(id: number | string): Promise<Tone> {
     const res = await this.fetch(`/api/v1/tones/${id}`);
     if (!res.ok) throw new Error(`getTone failed: ${res.status}`);
     return res.json();
@@ -379,8 +500,8 @@ export class T3KClient {
     if (params?.page) qs.set('page', String(params.page));
     if (params?.pageSize) qs.set('page_size', String(params.pageSize));
     if (params?.sort) qs.set('sort', params.sort);
-    if (params?.gear?.length) qs.set('gear', params.gear.join('_')); // underscore-separated (preferred)
-    if (params?.sizes?.length) qs.set('sizes', params.sizes.join('-')); // hyphen-separated (preferred)
+    if (params?.gears?.length) qs.set('gears', params.gears.join('_'));
+    if (params?.sizes?.length) qs.set('sizes', params.sizes.join('_'));
     const res = await this.fetch(`/api/v1/tones/search?${qs}`);
     if (!res.ok) throw new Error(`searchTones failed: ${res.status}`);
     return res.json();

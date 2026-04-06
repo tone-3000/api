@@ -34,7 +34,6 @@ export function LoadModelApp() {
       setAccessDenied(true);
       if (storedSlotId) setActiveSlotId(storedSlotId);
       sessionStorage.removeItem('t3k_active_slot_id');
-      // Clean the URL without triggering a reload
       window.history.replaceState({}, '', `?demo=load-model`);
       return;
     }
@@ -87,40 +86,66 @@ export function LoadModelApp() {
           </div>
           <span className="app-tagline">Load Neural Amp Modeler files</span>
         </div>
-        <a className="t3k-badge" href="https://www.tone3000.com/api" target="_blank" rel="noopener noreferrer">
-          <span>Powered by</span>
-          <img src={t3kLogo} alt="TONE3000" className="t3k-badge-logo" />
-        </a>
       </header>
 
       <main className="app-main">
         {error && <ErrorBanner message={error} onDismiss={() => setError(null)} />}
 
-        {loading && (
+        {loading ? (
           <div className="loading-state">
             <Spinner />
             <p>Loading model from TONE3000…</p>
           </div>
-        )}
-
-        {!loading && (
+        ) : (
           <>
+            {/* Loaded model — above the fold */}
+            <div className="loaded-section loaded-section--top">
+              <div className="section-header">
+                <h2 className="section-title">Loaded Model</h2>
+                {loadedModel && (
+                  <button
+                    className="btn btn-primary"
+                    onClick={handleDownload}
+                    disabled={downloading}
+                  >
+                    {downloading ? 'Downloading…' : 'Download Model'}
+                  </button>
+                )}
+              </div>
+
+              {accessDenied && (
+                <div className="access-denied-banner">
+                  <div className="access-denied-icon">🔒</div>
+                  <div>
+                    <h3 className="access-denied-title">Model Unavailable</h3>
+                    <p className="access-denied-desc">
+                      This model is no longer accessible. The creator may have made it private or deleted it.
+                      Contact the tone creator on TONE3000 if you believe this is an error.
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {loadedModel ? (
+                <div className="model-detail-card">
+                  <div className="model-detail-info">
+                    <h3 className="model-detail-name">{loadedModel.name}</h3>
+                    <div className="model-detail-meta">
+                      <span className="badge">{loadedModel.size}</span>
+                      <span className="meta-text">Tone #{loadedModel.tone_id}</span>
+                    </div>
+                  </div>
+                </div>
+              ) : !accessDenied && (
+                <div className="loaded-placeholder">
+                  <p className="loaded-placeholder-text">No model loaded yet. Select a slot below to load one from TONE3000.</p>
+                </div>
+              )}
+            </div>
+
             <div className="section-header">
               <h2 className="section-title">Model Slots</h2>
             </div>
-
-            {accessDenied && (
-              <div className="access-denied-banner">
-                <div className="access-denied-icon">🔒</div>
-                <div>
-                  <h3 className="access-denied-title">Model Unavailable</h3>
-                  <p className="access-denied-desc">
-                    This model is no longer accessible. The creator may have made it private or deleted it.
-                    Contact the tone creator on TONE3000 if you believe this is an error.
-                  </p>
-                </div>
-              </div>
-            )}
 
             <div className="slot-list">
               {MODEL_SLOTS.map((slot) => {
@@ -143,30 +168,6 @@ export function LoadModelApp() {
                 );
               })}
             </div>
-
-            {loadedModel && (
-              <div className="loaded-section">
-                <div className="section-header">
-                  <h2 className="section-title">Loaded Model</h2>
-                </div>
-                <div className="model-detail-card">
-                  <div className="model-detail-info">
-                    <h3 className="model-detail-name">{loadedModel.name}</h3>
-                    <div className="model-detail-meta">
-                      <span className="badge">{loadedModel.size}</span>
-                      <span className="meta-text">Tone #{loadedModel.tone_id}</span>
-                    </div>
-                  </div>
-                  <button
-                    className="btn btn-primary"
-                    onClick={handleDownload}
-                    disabled={downloading}
-                  >
-                    {downloading ? 'Downloading…' : 'Download Model'}
-                  </button>
-                </div>
-              </div>
-            )}
           </>
         )}
       </main>

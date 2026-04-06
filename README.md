@@ -15,7 +15,7 @@ AmpHub is a guitar amp simulation plugin. When a user clicks "Browse Tones on
 TONE3000", they're taken to the TONE3000 catalog to browse and select a tone.
 Once selected, AmpHub receives the tone and its downloadable model files.
 
-**Flow:** `GET /api/v1/oauth/authorize?prompt=select_tone` → callback with `tone_id` → `GET /api/v1/tones/{id}`
+**Flow:** `GET /api/v1/oauth/authorize?prompt=select_tone` → callback with `tone_id` → `GET /api/v1/tones/{id}` + `GET /api/v1/models?tone_id={id}`
 
 ---
 
@@ -24,20 +24,10 @@ Once selected, AmpHub receives the tone and its downloadable model files.
 
 Rig Sync is a rig preset manager. It stores TONE3000 tone IDs in its presets and
 loads them on demand. TONE3000 handles the auth check — if a tone is private or
-deleted, the user can pick a replacement without leaving the flow.
+deleted, the user can pick a replacement without leaving the flow. Optional `gears`
+and `platform` filters scope the replacement browse view to your product's supported types.
 
-**Flow:** `GET /api/v1/oauth/authorize?prompt=load_tone&tone_id=42` → callback with `tone_id` + code → fetch tone
-
----
-
-### 🧠 NAM Loader — Load Model Flow
-*Best for: Apps that load specific neural amp model files.*
-
-NAM Loader is a neural amp model loader. It holds model IDs, authenticates the
-user on TONE3000, and downloads model files directly. If a model is inaccessible,
-TONE3000 notifies the app and NAM Loader shows a clear error.
-
-**Flow:** `GET /api/v1/oauth/authorize?prompt=load_model&model_id=5` → success callback with `model_id`, or `error=access_denied`
+**Flow:** `GET /api/v1/oauth/authorize?prompt=load_tone&tone_id=42&gears=amp` → callback with `tone_id` + code → fetch tone
 
 ---
 
@@ -60,7 +50,7 @@ It's the reference implementation for a full API integration.
 1. Log in to [tone3000.com](https://www.tone3000.com)
 2. Go to **Settings → API Keys**
 3. Click **Create API Key** — you'll receive a `t3k_pub_…` publishable key
-4. Copy the publishable key (the secret key is for server-side use only)
+4. Copy the publishable key
 
 ### 2. Configure your environment
 
@@ -94,23 +84,20 @@ apps. Each one opens a self-contained integration example.
 ## SDK Client
 
 The `src/tone3000-client.ts` file is a zero-dependency integration helper
-that covers all four OAuth flows and the full set of API endpoints. Copy it into
-your project as a starting point — it's designed to be close to the public SDK
-we'll be releasing.
+that covers all four OAuth flows and the full set of API endpoints. Use it as
+inspiration for your own integration.
 
 ### OAuth Flow Functions
 
 ```typescript
-import { startSelectFlow, startLoadToneFlow, startLoadModelFlow, startStandardFlow, handleOAuthCallback, T3KClient } from './tone3000-client';
+import { startSelectFlow, startLoadToneFlow, startStandardFlow, handleOAuthCallback, T3KClient } from './tone3000-client';
 
 // Select Flow — user browses TONE3000 and picks a tone
 await startSelectFlow(PUBLISHABLE_KEY, REDIRECT_URI);
 
 // Load Tone Flow — TONE3000 authenticates the user and checks access to a specific tone
-await startLoadToneFlow(PUBLISHABLE_KEY, REDIRECT_URI, toneId);
-
-// Load Model Flow — TONE3000 authenticates the user and checks access to a specific model
-await startLoadModelFlow(PUBLISHABLE_KEY, REDIRECT_URI, modelId);
+// Optional: pass gears/platform to filter the replacement browse view if the tone is inaccessible
+await startLoadToneFlow(PUBLISHABLE_KEY, REDIRECT_URI, toneId, { gears: 'amp', platform: 'nam' });
 
 // Standard Flow — user connects their TONE3000 account; app fetches tones programmatically
 await startStandardFlow(PUBLISHABLE_KEY, REDIRECT_URI);
@@ -124,9 +111,8 @@ const result = await handleOAuthCallback(PUBLISHABLE_KEY, REDIRECT_URI);
 
 if (result.ok) {
   client.setTokens(result.tokens);
-  const { toneId, modelId } = result; // present for select/load_tone/load_model flows
+  const { toneId } = result; // present for select/load_tone flows
 } else {
-  // result.error is 'access_denied' for load_model when the model is private
   console.error('Auth failed:', result.error);
 }
 ```
@@ -142,11 +128,14 @@ const client = new T3KClient(PUBLISHABLE_KEY, () => {
 // Set tokens from the callback result
 client.setTokens(result.tokens);
 
-// Fetch a tone (includes models array)
+// Fetch a tone
 const tone = await client.getTone(42);
 
+// Fetch models for a tone (each has a model_url for downloading)
+const { data: models } = await client.listModels(42);
+
 // Search tones with filters
-const results = await client.searchTones({ query: 'fender', gear: [Gear.Amp], sort: TonesSort.Trending });
+const results = await client.searchTones({ query: 'fender', gears: [Gear.Amp], sort: TonesSort.Trending });
 
 // Download a model file (requires Bearer auth — use this method, not fetch())
 await client.downloadModel(model.model_url, model.name);
@@ -170,7 +159,7 @@ Full reference: [tone3000.com/api](https://www.tone3000.com/api)
 | Method | Path | Description |
 |--------|------|-------------|
 | GET | `/api/v1/user` | Authenticated user profile |
-| GET | `/api/v1/tones/{id}` | Tone by ID (includes models) |
+| GET | `/api/v1/tones/{id}` | Tone by ID |
 | GET | `/api/v1/tones/search` | Search and filter tones |
 | GET | `/api/v1/tones/created` | Tones created by the authenticated user |
 | GET | `/api/v1/tones/favorited` | Tones favorited by the authenticated user |

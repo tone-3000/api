@@ -136,7 +136,7 @@ export interface SearchTonesParams {
   page?: number;
   pageSize?: number;
   sort?: TonesSort;
-  gear?: Gear[];
+  gears?: Gear[];
   sizes?: Size[];
 }
 

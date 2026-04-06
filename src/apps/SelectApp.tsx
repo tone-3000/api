@@ -1,7 +1,7 @@
 // src/apps/SelectApp.tsx
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { PUBLISHABLE_KEY, REDIRECT_URI } from '../config';
-import { startSelectFlow } from '../tone3000-client';
+import { startSelectFlowPopup, handleOAuthCallbackFromPopup } from '../tone3000-client';
 import { t3kClient } from '../App';
 import { ToneCard } from '../components/ToneCard';
 import { ModelList } from '../components/ModelList';
@@ -16,30 +16,62 @@ export function SelectApp() {
   const [tone, setTone] = useState<ToneWithModels | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [browsing, setBrowsing] = useState(false);
+  const popupRef = useRef<Window | null>(null);
 
-  // Read the tone_id resolved by the OAuth callback (set by App.tsx)
+  // Listen for the OAuth callback relayed from the popup (postMessage or BroadcastChannel).
   useEffect(() => {
-    const resolvedToneId = sessionStorage.getItem('t3k_resolved_tone_id');
-    const callbackError = new URLSearchParams(window.location.search).get('error');
-
-    if (callbackError) {
-      setError('Authentication failed. Please try again.');
-      return;
-    }
-
-    if (resolvedToneId && t3kClient.isConnected()) {
-      sessionStorage.removeItem('t3k_resolved_tone_id');
+    const handleMessage = async (event: MessageEvent) => {
+      if (event.data?.type !== 't3k_oauth_callback') return;
+      // Transition to loading immediately — before the async token exchange —
+      // so the popup-closed interval can't land on "No Tone Loaded" mid-flight.
+      setBrowsing(false);
       setLoading(true);
-      t3kClient.getTone(resolvedToneId)
-        .then(setTone)
-        .catch(() => setError('Failed to load tone. Please try again.'))
-        .finally(() => setLoading(false));
-    }
+      const result = await handleOAuthCallbackFromPopup(PUBLISHABLE_KEY, REDIRECT_URI, event);
+      if (!result.ok) {
+        setLoading(false);
+        setError('Authentication failed. Please try again.');
+        return;
+      }
+      t3kClient.setTokens(result.tokens);
+      if (result.toneId) {
+        Promise.all([
+          t3kClient.getTone(result.toneId),
+          t3kClient.listModels(result.toneId),
+        ])
+          .then(([t, modelsRes]) => setTone({ ...t, models: modelsRes.data }))
+          .catch(() => setError('Failed to load tone. Please try again.'))
+          .finally(() => setLoading(false));
+      } else {
+        setLoading(false);
+      }
+    };
+
+    window.addEventListener('message', handleMessage);
+    const bc = new BroadcastChannel('t3k_oauth');
+    bc.onmessage = handleMessage;
+    return () => {
+      window.removeEventListener('message', handleMessage);
+      bc.close();
+    };
   }, []);
 
+  // Reset browsing state if the popup is closed without completing
+  useEffect(() => {
+    if (!browsing) return;
+    const interval = setInterval(() => {
+      if (popupRef.current?.closed) {
+        setBrowsing(false);
+        popupRef.current = null;
+      }
+    }, 500);
+    return () => clearInterval(interval);
+  }, [browsing]);
+
   const handleBrowse = () => {
-    sessionStorage.setItem('t3k_pending_demo', 'select');
-    startSelectFlow(PUBLISHABLE_KEY, REDIRECT_URI);
+    setBrowsing(true);
+    startSelectFlowPopup(PUBLISHABLE_KEY, REDIRECT_URI, { gears: 'full-rig' })
+      .then((popup) => { popupRef.current = popup; });
   };
 
   return (
@@ -52,10 +84,6 @@ export function SelectApp() {
           </div>
           <span className="app-tagline">Guitar Amp Simulation</span>
         </div>
-        <a className="t3k-badge" href="https://www.tone3000.com/api" target="_blank" rel="noopener noreferrer">
-          <span>Powered by</span>
-          <img src={t3kLogo} alt="TONE3000" className="t3k-badge-logo" />
-        </a>
       </header>
 
       <main className="app-main">
@@ -81,16 +109,26 @@ export function SelectApp() {
 
         {!loading && !tone && !error && (
           <div className="empty-state">
-            <div className="empty-state-icon">🎛️</div>
-            <h3 className="empty-state-title">No Tone Loaded</h3>
-            <p className="empty-state-desc">
-              Browse the TONE3000 catalog to find a tone and load it into AmpHub.
-              You'll be able to download and activate the model directly.
-            </p>
-            <button className="btn btn-primary btn-t3k" onClick={handleBrowse}>
-              <img src={t3kLogo} alt="" className="btn-logo" />
-              Browse Tones on TONE3000
-            </button>
+            {browsing ? (
+              <>
+                <div className="empty-state-icon">🌐</div>
+                <h3 className="empty-state-title">You've been redirected to TONE3000</h3>
+                <p className="empty-state-desc">Finish up before returning here.</p>
+              </>
+            ) : (
+              <>
+                <div className="empty-state-icon">🎛️</div>
+                <h3 className="empty-state-title">No Tone Loaded</h3>
+                <p className="empty-state-desc">
+                  Browse the TONE3000 catalog to find a tone and load it into AmpHub.
+                  You'll be able to download and activate the model directly.
+                </p>
+                <button className="btn btn-primary btn-t3k" onClick={handleBrowse}>
+                  <img src={t3kLogo} alt="" className="btn-logo" />
+                  Browse Tones on TONE3000
+                </button>
+              </>
+            )}
           </div>
         )}
 

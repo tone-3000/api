@@ -106,7 +106,7 @@ export function FullApiApp() {
       try {
         const res = await t3kClient.searchTones({
           query: query || undefined,
-          gear: gearFilter ? [gearFilter as Gear] : undefined,
+          gears: gearFilter ? [gearFilter as Gear] : undefined,
           sort,
           page: tonesPage,
           pageSize: 12,
@@ -143,8 +143,11 @@ export function FullApiApp() {
     setToneDetailLoading(true);
     setSelectedTone(null);
     try {
-      const full = await t3kClient.getTone(tone.id);
-      setSelectedTone(full);
+      const [full, modelsRes] = await Promise.all([
+        t3kClient.getTone(tone.id),
+        t3kClient.listModels(tone.id),
+      ]);
+      setSelectedTone({ ...full, models: modelsRes.data });
     } catch {
       setError('Failed to load tone details.');
     } finally {
@@ -176,10 +179,6 @@ export function FullApiApp() {
             </div>
             <span className="app-tagline">Tone Discovery & Management</span>
           </div>
-          <a className="t3k-badge" href="https://www.tone3000.com/api" target="_blank" rel="noopener noreferrer">
-            <span>Powered by</span>
-            <img src={t3kLogo} alt="TONE3000" className="t3k-badge-logo" />
-          </a>
         </header>
         <main className="app-main">
           <div className="connect-state">
@@ -212,10 +211,6 @@ export function FullApiApp() {
           </div>
         </div>
         <div className="header-actions">
-          <a className="t3k-badge" href="https://www.tone3000.com/api" target="_blank" rel="noopener noreferrer">
-            <span>Powered by</span>
-            <img src={t3kLogo} alt="TONE3000" className="t3k-badge-logo" />
-          </a>
           <button className="btn btn-ghost" onClick={handleDisconnect}>Disconnect</button>
         </div>
       </header>
@@ -228,7 +223,7 @@ export function FullApiApp() {
             { id: 'my-tones', label: 'My Tones', icon: '🎵' },
             { id: 'favorites', label: 'Favorites', icon: '⭐' },
             { id: 'browse', label: 'Browse Tones', icon: '🔍' },
-            { id: 'artists', label: 'Browse Artists', icon: '🎸' },
+            { id: 'artists', label: 'Browse Creators', icon: '🎸' },
           ].map((item) => (
             <button
               key={item.id}

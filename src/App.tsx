@@ -9,6 +9,32 @@ import { FullApiApp } from './apps/FullApiApp';
 import type { Demo } from './types';
 import t3kLogo from './assets/t3k.svg';
 
+// Runs before React: if we're the popup, relay the callback to the opener and close.
+// Falls back to BroadcastChannel when window.opener is null (browsers clear it after
+// cross-origin navigation, e.g. the user had to log in during the flow).
+(function relayPopupCallback() {
+  const isPopup = window.opener || sessionStorage.getItem('t3k_popup_mode') === '1';
+  if (!isPopup) return;
+  const params = new URLSearchParams(window.location.search);
+  if (!params.has('code') && !(params.has('error') && params.has('state'))) return;
+  const message = {
+    type: 't3k_oauth_callback',
+    code: params.get('code'),
+    state: params.get('state'),
+    error: params.get('error'),
+    tone_id: params.get('tone_id'),
+    model_id: params.get('model_id'),
+  };
+  if (window.opener) {
+    window.opener.postMessage(message, window.location.origin);
+  } else {
+    const bc = new BroadcastChannel('t3k_oauth');
+    bc.postMessage(message);
+    bc.close();
+  }
+  window.close();
+})();
+
 // One shared client — sessionStorage tokens survive page refreshes
 export const t3kClient = new T3KClient(PUBLISHABLE_KEY, () => {
   // Re-authenticate silently; user won't see login if still signed into TONE3000
@@ -30,6 +56,9 @@ export default function App() {
 
   // Handle OAuth callback on mount
   useEffect(() => {
+    // Skip if we're the popup — the IIFE above already relayed the callback.
+    if (sessionStorage.getItem('t3k_popup_mode') === '1') return;
+
     const params = new URLSearchParams(window.location.search);
     // Only treat as a callback if state is present — TONE3000 always includes
     // state in its redirects, but the error params we set ourselves don't.

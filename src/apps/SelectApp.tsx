@@ -28,7 +28,7 @@ export function SelectApp() {
       setBrowsing(false);
       setLoading(true);
       const result = await handleOAuthCallbackFromPopup(PUBLISHABLE_KEY, REDIRECT_URI, event);
-      if (!result.ok) {
+      if (!result || !result.ok) {
         setLoading(false);
         setError('Authentication failed. Please try again.');
         return;

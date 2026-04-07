@@ -1,7 +1,10 @@
 // src/apps/LoadToneApp.tsx
 import { useState, useEffect, useRef } from 'react';
 import { PUBLISHABLE_KEY, REDIRECT_URI } from '../config';
-import { startLoadToneFlowPopup, handleOAuthCallbackFromPopup } from '../tone3000-client';
+import {
+  startLoadToneFlowPopup,
+  handleOAuthCallbackFromPopup,
+} from '../tone3000-client';
 import { t3kClient } from '../App';
 import { ToneCard } from '../components/ToneCard';
 import { ModelList } from '../components/ModelList';
@@ -11,9 +14,16 @@ import type { Tone, Model } from '../types';
 import t3kLogo from '../assets/t3k.svg';
 
 type ToneWithModels = Tone & { models: Model[] };
+type Preset = {
+  id: string;
+  name: string;
+  description: string;
+  toneId: number;
+  gears?: string;
+};
 
 // Simulated presets — in a real app these come from your database
-const PRESETS = [
+const PRESETS: Preset[] = [
   { id: 'preset-1', name: 'British Citrus', description: 'Iconic Brit-rock tone', toneId: 18, gears: 'full-rig' },
   { id: 'preset-2', name: 'Jazz Clean', description: 'Sparkly clean tone', toneId: 10912, gears: 'full-rig' },
   { id: 'preset-3', name: 'Bright Crunch', description: 'Heavy vintage rock tone', toneId: 57529, gears: 'full-rig' },
@@ -28,6 +38,30 @@ export function LoadToneApp() {
   const [error, setError] = useState<string | null>(null);
   const [activePresetId, setActivePresetId] = useState<string | null>(null);
   const popupRef = useRef<Window | null>(null);
+
+  useEffect(() => {
+    const resolvedToneId = sessionStorage.getItem('t3k_resolved_tone_id');
+    const params = new URLSearchParams(window.location.search);
+    const callbackError = params.get('error');
+
+    if (callbackError) {
+      setError('Authentication failed. Please try again.');
+      return;
+    }
+
+    if (resolvedToneId && t3kClient.isConnected()) {
+      sessionStorage.removeItem('t3k_resolved_tone_id');
+      setLoading(true);
+      setRequestedToneId(Number(resolvedToneId));
+      Promise.all([
+        t3kClient.getTone(resolvedToneId),
+        t3kClient.listModels(resolvedToneId),
+      ])
+        .then(([tone, modelsRes]) => setLoadedTone({ ...tone, models: modelsRes.data }))
+        .catch(() => setError('Failed to load tone. Please try again.'))
+        .finally(() => setLoading(false));
+    }
+  }, []);
 
   // Listen for the OAuth callback relayed from the popup (postMessage or BroadcastChannel).
   useEffect(() => {
@@ -60,10 +94,11 @@ export function LoadToneApp() {
     };
   }, []);
 
-  const handleLoad = (preset: typeof PRESETS[0]) => {
+  const handleLoad = (preset: Preset) => {
     setError(null);
     setActivePresetId(preset.id);
     setRequestedToneId(preset.toneId);
+    sessionStorage.setItem('t3k_pending_demo', 'load-tone');
 
     const openPopup = () => {
       setLoadedTone(null);
@@ -81,11 +116,13 @@ export function LoadToneApp() {
       ])
         .then(([tone, modelsRes]) => setLoadedTone({ ...tone, models: modelsRes.data }))
         .catch((err: unknown) => {
-          // Tone is inaccessible — open the popup so TONE3000 can offer a replacement
           if (err instanceof Error && err.message.includes(': 404')) {
+            // Tone is inaccessible — open the popup so TONE3000 can offer a replacement
             openPopup();
           } else {
-            setError('Failed to load tone. Please try again.');
+            // Auth failure or network error — clear stale tokens and re-auth via popup
+            t3kClient.clearTokens();
+            openPopup();
           }
         })
         .finally(() => setLoading(false));

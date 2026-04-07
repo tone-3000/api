@@ -37,8 +37,12 @@ import t3kLogo from './assets/t3k.svg';
 
 // One shared client — sessionStorage tokens survive page refreshes
 export const t3kClient = new T3KClient(PUBLISHABLE_KEY, () => {
+  const demo = getActiveDemo();
+  // Popup-based demos (load-tone, load-model) handle re-auth via popup —
+  // don't do a full-page redirect that would break the popup UX.
+  if (demo === 'load-tone' || demo === 'load-model') return;
   // Re-authenticate silently; user won't see login if still signed into TONE3000
-  sessionStorage.setItem('t3k_pending_demo', getActiveDemo() ?? 'full-api');
+  sessionStorage.setItem('t3k_pending_demo', demo ?? 'full-api');
   startStandardFlow(PUBLISHABLE_KEY, REDIRECT_URI);
 });
 

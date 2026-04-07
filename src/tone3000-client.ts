@@ -241,6 +241,31 @@ export async function startLoadToneFlowPopup(
 }
 
 /**
+ * **Load Tone Flow (Popup, model_id variant)** — Open TONE3000 in a popup to
+ * authenticate and load a tone resolved from a specific model.
+ */
+export async function startLoadToneFlowPopupByModelId(
+  publishableKey: string,
+  redirectUri: string,
+  modelId: number | string,
+  options?: { gears?: string; platform?: string }
+): Promise<Window | null> {
+  sessionStorage.setItem('t3k_popup_mode', '1');
+  const pkce = await buildPkceParams();
+  const extra: Record<string, string> = { prompt: 'load_tone', model_id: String(modelId) };
+  if (options?.gears) extra.gears = options.gears;
+  if (options?.platform) extra.platform = options.platform;
+  const url = buildAuthorizeUrl(publishableKey, redirectUri, extra, pkce);
+  const width = 480;
+  const height = 700;
+  const left = Math.round(window.screenX + (window.outerWidth - width) / 2);
+  const top = Math.round(window.screenY + (window.outerHeight - height) / 2);
+  const popup = window.open(url, 't3k_load_tone', `width=${width},height=${height},left=${left},top=${top},toolbar=no,menubar=no,location=no,status=no,resizable=yes,scrollbars=yes`);
+  sessionStorage.removeItem('t3k_popup_mode');
+  return popup;
+}
+
+/**
  * **Load Model Flow** — Send the user to TONE3000 to authenticate and load a specific model.
  *
  * Use this when your app has a `model_id` and wants to load that exact model.

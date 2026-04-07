@@ -79,7 +79,10 @@ export function LoadToneApp() {
           t3kClient.getTone(result.toneId),
           t3kClient.listModels(result.toneId),
         ])
-          .then(([tone, modelsRes]) => setLoadedTone({ ...tone, models: modelsRes.data }))
+          .then(([tone, modelsRes]) => {
+            sessionStorage.setItem('t3k_resolved_tone_id', String(tone.id));
+            setLoadedTone({ ...tone, models: modelsRes.data });
+          })
           .catch(() => setError('Failed to load tone. Please try again.'))
           .finally(() => setLoading(false));
       }
@@ -114,7 +117,10 @@ export function LoadToneApp() {
         t3kClient.getTone(preset.toneId),
         t3kClient.listModels(preset.toneId),
       ])
-        .then(([tone, modelsRes]) => setLoadedTone({ ...tone, models: modelsRes.data }))
+        .then(([tone, modelsRes]) => {
+          sessionStorage.setItem('t3k_resolved_tone_id', String(tone.id));
+          setLoadedTone({ ...tone, models: modelsRes.data });
+        })
         .catch((err: unknown) => {
           if (err instanceof Error && err.message.includes(': 404')) {
             // Tone is inaccessible — open the popup so TONE3000 can offer a replacement

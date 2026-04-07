@@ -4,7 +4,8 @@ import { PUBLISHABLE_KEY, REDIRECT_URI } from './config';
 import { handleOAuthCallback, T3KClient, startStandardFlow } from './tone3000-client';
 import { SelectApp } from './apps/SelectApp';
 import { LoadToneApp } from './apps/LoadToneApp';
-import { LoadModelApp } from './apps/LoadModelApp';
+// LoadModelApp intentionally not rendered — kept for reference
+// import { LoadModelApp } from './apps/LoadModelApp';
 import { FullApiApp } from './apps/FullApiApp';
 import type { Demo } from './types';
 import t3kLogo from './assets/t3k.svg';
@@ -38,9 +39,9 @@ import t3kLogo from './assets/t3k.svg';
 // One shared client — sessionStorage tokens survive page refreshes
 export const t3kClient = new T3KClient(PUBLISHABLE_KEY, () => {
   const demo = getActiveDemo();
-  // Popup-based demos (load-tone, load-model) handle re-auth via popup —
+  // Popup-based demos handle re-auth via popup —
   // don't do a full-page redirect that would break the popup UX.
-  if (demo === 'load-tone' || demo === 'load-model') return;
+  if (demo === 'load-tone') return;
   // Re-authenticate silently; user won't see login if still signed into TONE3000
   sessionStorage.setItem('t3k_pending_demo', demo ?? 'full-api');
   startStandardFlow(PUBLISHABLE_KEY, REDIRECT_URI);
@@ -105,7 +106,6 @@ export default function App() {
 
   if (activeDemo === 'select') return <SelectApp />;
   if (activeDemo === 'load-tone') return <LoadToneApp />;
-  if (activeDemo === 'load-model') return <LoadModelApp />;
   if (activeDemo === 'full-api') return <FullApiApp />;
 
   // Landing page
@@ -114,7 +114,7 @@ export default function App() {
       <header className="landing-header">
         <h1 className="landing-title">TONE3000 API Examples</h1>
         <p className="landing-subtitle">
-          Four reference integrations showing how to build against the TONE3000 API.
+          Reference integrations showing how to build against the TONE3000 API.
         </p>
         <a className="landing-api-link" href="https://www.tone3000.com/api" target="_blank" rel="noopener noreferrer">
           <img src={t3kLogo} alt="TONE3000 API" className="landing-t3k-logo" />
@@ -148,20 +148,6 @@ export default function App() {
           </p>
           <div className="demo-card-use-case">
             Best for: Apps with saved tone references that need auth + access checking
-          </div>
-          <span className="demo-card-cta">Open Demo →</span>
-        </button>
-
-        <button className="demo-card" onClick={() => navigateTo('load-model')}>
-          <div className="demo-card-tag">Load Model Flow</div>
-          <h2 className="demo-card-title">NAM Loader</h2>
-          <p className="demo-card-product">Neural Amp Model Loader</p>
-          <p className="demo-card-desc">
-            NAM Loader stores model IDs and downloads them directly from TONE3000.
-            It handles auth, access denial, and file downloads in a unified flow.
-          </p>
-          <div className="demo-card-use-case">
-            Best for: Apps that load specific model files (NAM, IR, etc.)
           </div>
           <span className="demo-card-cta">Open Demo →</span>
         </button>

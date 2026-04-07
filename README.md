@@ -76,7 +76,7 @@ npm install
 npm run dev
 ```
 
-Open [http://localhost:3001](http://localhost:3001) — you'll see the four demo
+Open [http://localhost:3001](http://localhost:3001) — you'll see the demo
 apps. Each one opens a self-contained integration example.
 
 ---
@@ -84,7 +84,7 @@ apps. Each one opens a self-contained integration example.
 ## SDK Client
 
 The `src/tone3000-client.ts` file is a zero-dependency integration helper
-that covers all four OAuth flows and the full set of API endpoints. Use it as
+that covers the OAuth flows and the full set of API endpoints. Use it as
 inspiration for your own integration.
 
 ### OAuth Flow Functions

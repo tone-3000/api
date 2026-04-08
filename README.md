@@ -4,6 +4,8 @@ Reference integrations showing how to connect your app to the TONE3000 API.
 TONE3000 is a tone library for guitar and audio software — visit
 [tone3000.com/api](https://www.tone3000.com/api) for full API documentation.
 
+A live example of this demo can be viewed at [t3k-api-demo.vercel.app](https://t3k-api-demo.vercel.app/).
+
 Run any of them locally in minutes using your own TONE3000 API key.
 
 ## Demo Apps

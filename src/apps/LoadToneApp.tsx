@@ -36,6 +36,7 @@ export function LoadToneApp() {
   const [requestedToneId, setRequestedToneId] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [canceled, setCanceled] = useState(false);
   const [activePresetId, setActivePresetId] = useState<string | null>(null);
   const popupRef = useRef<Window | null>(null);
 
@@ -69,10 +70,18 @@ export function LoadToneApp() {
       const result = await handleOAuthCallbackFromPopup(PUBLISHABLE_KEY, REDIRECT_URI, event);
       if (!result) return;
       if (!result.ok) {
+        if (result.error === 'canceled') {
+          setCanceled(true);
+          return;
+        }
         setError('Authentication failed. Please try again.');
         return;
       }
       t3kClient.setTokens(result.tokens);
+      if (result.canceled) {
+        setCanceled(true);
+        return;
+      }
       if (result.toneId) {
         setLoading(true);
         Promise.all([
@@ -99,13 +108,14 @@ export function LoadToneApp() {
 
   const handleLoad = (preset: Preset) => {
     setError(null);
+    setCanceled(false);
     setActivePresetId(preset.id);
     setRequestedToneId(preset.toneId);
     sessionStorage.setItem('t3k_pending_demo', 'load-tone');
 
     const openPopup = () => {
       setLoadedTone(null);
-      const options = preset.gears ? { gears: preset.gears } : undefined;
+      const options = { ...(preset.gears ? { gears: preset.gears } : {}), menubar: true };
       return startLoadToneFlowPopup(PUBLISHABLE_KEY, REDIRECT_URI, preset.toneId, options)
         .then((popup) => { popupRef.current = popup; });
     };
@@ -152,6 +162,12 @@ export function LoadToneApp() {
       </header>
 
       <main className="app-main">
+        {canceled && (
+          <div className="info-banner">
+            <span className="info-banner-icon">ℹ️</span>
+            <p>You closed TONE3000 without loading a tone.</p>
+          </div>
+        )}
         {error && <ErrorBanner message={error} onDismiss={() => setError(null)} />}
 
         {loading ? (

@@ -17,7 +17,7 @@ import t3kLogo from './assets/t3k.svg';
   const isPopup = window.opener || sessionStorage.getItem('t3k_popup_mode') === '1';
   if (!isPopup) return;
   const params = new URLSearchParams(window.location.search);
-  if (!params.has('code') && !(params.has('error') && params.has('state'))) return;
+  if (!params.has('code') && !(params.has('error') && params.has('state')) && !params.has('canceled')) return;
   const message = {
     type: 't3k_oauth_callback',
     code: params.get('code'),
@@ -25,6 +25,7 @@ import t3kLogo from './assets/t3k.svg';
     error: params.get('error'),
     tone_id: params.get('tone_id'),
     model_id: params.get('model_id'),
+    canceled: params.get('canceled') === 'true',
   };
   if (window.opener) {
     window.opener.postMessage(message, window.location.origin);
@@ -67,7 +68,7 @@ export default function App() {
     const params = new URLSearchParams(window.location.search);
     // Only treat as a callback if state is present — TONE3000 always includes
     // state in its redirects, but the error params we set ourselves don't.
-    const hasCallback = params.has('code') || (params.has('error') && params.has('state'));
+    const hasCallback = params.has('code') || (params.has('error') && params.has('state')) || params.has('canceled');
     if (!hasCallback) return;
 
     // Guard against React StrictMode double-invocation.
@@ -83,9 +84,11 @@ export default function App() {
     handleOAuthCallback(PUBLISHABLE_KEY, REDIRECT_URI).then((result) => {
       if (result.ok) {
         t3kClient.setTokens(result.tokens);
-        // Store resolved IDs so the demo app can read them on load
         if (result.toneId) sessionStorage.setItem('t3k_resolved_tone_id', result.toneId);
         if (result.modelId) sessionStorage.setItem('t3k_resolved_model_id', result.modelId);
+        navigateTo(pendingDemo);
+      } else if (result.error === 'canceled') {
+        // User closed via menubar before signing in — no tokens available
         navigateTo(pendingDemo);
       } else {
         navigateTo(pendingDemo, { error: result.error });

@@ -28,7 +28,7 @@ export interface T3KTokens {
 
 /** Result of handleOAuthCallback(). Always check `ok` before using fields. */
 export type OAuthCallbackResult =
-  | { ok: true; tokens: T3KTokens; toneId?: string; modelId?: string }
+  | { ok: true; tokens: T3KTokens; toneId?: string; modelId?: string; canceled?: boolean }
   | { ok: false; error: string };
 
 // ─── Internal PKCE helpers ────────────────────────────────────────────────────
@@ -88,12 +88,13 @@ function buildAuthorizeUrl(
 export async function startSelectFlow(
   publishableKey: string,
   redirectUri: string,
-  options?: { gears?: string; platform?: string }
+  options?: { gears?: string; platform?: string; menubar?: boolean }
 ): Promise<void> {
   const pkce = await buildPkceParams();
   const extra: Record<string, string> = { prompt: 'select_tone' };
   if (options?.gears) extra.gears = options.gears;
   if (options?.platform) extra.platform = options.platform;
+  if (options?.menubar) extra.menubar = 'true';
   window.location.href = buildAuthorizeUrl(publishableKey, redirectUri, extra, pkce);
 }
 
@@ -107,7 +108,7 @@ export async function startSelectFlow(
 export async function startSelectFlowPopup(
   publishableKey: string,
   redirectUri: string,
-  options?: { gears?: string; platform?: string }
+  options?: { gears?: string; platform?: string; menubar?: boolean }
 ): Promise<Window | null> {
   // Set before window.open so the popup inherits this flag via sessionStorage copy;
   // remove it from the parent immediately so only the popup retains it.
@@ -116,6 +117,7 @@ export async function startSelectFlowPopup(
   const extra: Record<string, string> = { prompt: 'select_tone' };
   if (options?.gears) extra.gears = options.gears;
   if (options?.platform) extra.platform = options.platform;
+  if (options?.menubar) extra.menubar = 'true';
   const url = buildAuthorizeUrl(publishableKey, redirectUri, extra, pkce);
 
   const width = 480;
@@ -142,7 +144,7 @@ export async function handleOAuthCallbackFromPopup(
 ): Promise<OAuthCallbackResult | null> {
   if (event.data?.type !== 't3k_oauth_callback') return null;
 
-  const { code, state: returnedState, error, tone_id: toneId, model_id: modelId } = event.data;
+  const { code, state: returnedState, error, tone_id: toneId, model_id: modelId, canceled } = event.data;
 
   const storedState = sessionStorage.getItem('t3k_state');
   const codeVerifier = sessionStorage.getItem('t3k_code_verifier');
@@ -151,6 +153,10 @@ export async function handleOAuthCallbackFromPopup(
   sessionStorage.removeItem('t3k_code_verifier');
 
   if (returnedState !== storedState) return { ok: false, error: 'state_mismatch' };
+
+  // User closed without signing in — no code to exchange
+  if (canceled && !code) return { ok: false, error: 'canceled' };
+
   if (error) return { ok: false, error };
   if (!code || !codeVerifier) return { ok: false, error: 'missing_code' };
 
@@ -178,7 +184,7 @@ export async function handleOAuthCallbackFromPopup(
     expires_at: Date.now() + data.expires_in * 1000,
   };
 
-  return { ok: true, tokens, toneId, modelId };
+  return { ok: true, tokens, toneId, modelId, ...(canceled ? { canceled: true } : {}) };
 }
 
 /**
@@ -200,12 +206,13 @@ export async function startLoadToneFlow(
   publishableKey: string,
   redirectUri: string,
   toneId: number | string,
-  options?: { gears?: string; platform?: string }
+  options?: { gears?: string; platform?: string; menubar?: boolean }
 ): Promise<void> {
   const pkce = await buildPkceParams();
   const extra: Record<string, string> = { prompt: 'load_tone', tone_id: String(toneId) };
   if (options?.gears) extra.gears = options.gears;
   if (options?.platform) extra.platform = options.platform;
+  if (options?.menubar) extra.menubar = 'true';
   window.location.href = buildAuthorizeUrl(publishableKey, redirectUri, extra, pkce);
 }
 
@@ -221,7 +228,7 @@ export async function startLoadToneFlowPopup(
   publishableKey: string,
   redirectUri: string,
   toneId: number | string,
-  options?: { gears?: string; platform?: string }
+  options?: { gears?: string; platform?: string; menubar?: boolean }
 ): Promise<Window | null> {
   // Set before window.open so the popup inherits this flag via sessionStorage copy;
   // remove it from the parent immediately so only the popup retains it.
@@ -230,6 +237,7 @@ export async function startLoadToneFlowPopup(
   const extra: Record<string, string> = { prompt: 'load_tone', tone_id: String(toneId) };
   if (options?.gears) extra.gears = options.gears;
   if (options?.platform) extra.platform = options.platform;
+  if (options?.menubar) extra.menubar = 'true';
   const url = buildAuthorizeUrl(publishableKey, redirectUri, extra, pkce);
   const width = 480;
   const height = 700;
@@ -248,13 +256,14 @@ export async function startLoadToneFlowPopupByModelId(
   publishableKey: string,
   redirectUri: string,
   modelId: number | string,
-  options?: { gears?: string; platform?: string }
+  options?: { gears?: string; platform?: string; menubar?: boolean }
 ): Promise<Window | null> {
   sessionStorage.setItem('t3k_popup_mode', '1');
   const pkce = await buildPkceParams();
   const extra: Record<string, string> = { prompt: 'load_tone', model_id: String(modelId) };
   if (options?.gears) extra.gears = options.gears;
   if (options?.platform) extra.platform = options.platform;
+  if (options?.menubar) extra.menubar = 'true';
   const url = buildAuthorizeUrl(publishableKey, redirectUri, extra, pkce);
   const width = 480;
   const height = 700;
@@ -324,6 +333,7 @@ export async function handleOAuthCallback(
   const returnedState = params.get('state');
   const toneId = params.get('tone_id') ?? undefined;
   const modelId = params.get('model_id') ?? undefined;
+  const canceled = params.get('canceled') === 'true';
 
   const storedState = sessionStorage.getItem('t3k_state');
   const codeVerifier = sessionStorage.getItem('t3k_code_verifier');
@@ -335,6 +345,11 @@ export async function handleOAuthCallback(
   // Verify state to prevent CSRF
   if (returnedState !== storedState) {
     return { ok: false, error: 'state_mismatch' };
+  }
+
+  // User closed without signing in — no code to exchange
+  if (canceled && !code) {
+    return { ok: false, error: 'canceled' };
   }
 
   // Access denied — e.g. model is private and user clicked "Back"
@@ -370,7 +385,7 @@ export async function handleOAuthCallback(
     expires_at: Date.now() + data.expires_in * 1000,
   };
 
-  return { ok: true, tokens, toneId, modelId };
+  return { ok: true, tokens, toneId, modelId, ...(canceled ? { canceled: true } : {}) };
 }
 
 // ─── Token refresh ────────────────────────────────────────────────────────────

@@ -16,6 +16,7 @@ export function SelectApp() {
   const [tone, setTone] = useState<ToneWithModels | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [canceled, setCanceled] = useState(false);
   const [browsing, setBrowsing] = useState(false);
   const popupRef = useRef<Window | null>(null);
 
@@ -28,12 +29,25 @@ export function SelectApp() {
       setBrowsing(false);
       setLoading(true);
       const result = await handleOAuthCallbackFromPopup(PUBLISHABLE_KEY, REDIRECT_URI, event);
-      if (!result || !result.ok) {
+      if (!result) {
         setLoading(false);
-        setError('Authentication failed. Please try again.');
+        return;
+      }
+      if (!result.ok) {
+        setLoading(false);
+        if (result.error === 'canceled') {
+          setCanceled(true);
+        } else {
+          setError('Authentication failed. Please try again.');
+        }
         return;
       }
       t3kClient.setTokens(result.tokens);
+      if (result.canceled) {
+        setCanceled(true);
+        setLoading(false);
+        return;
+      }
       if (result.toneId) {
         Promise.all([
           t3kClient.getTone(result.toneId),
@@ -69,8 +83,9 @@ export function SelectApp() {
   }, [browsing]);
 
   const handleBrowse = () => {
+    setCanceled(false);
     setBrowsing(true);
-    startSelectFlowPopup(PUBLISHABLE_KEY, REDIRECT_URI, { gears: 'full-rig' })
+    startSelectFlowPopup(PUBLISHABLE_KEY, REDIRECT_URI, { gears: 'full-rig', menubar: true })
       .then((popup) => { popupRef.current = popup; });
   };
 
@@ -95,6 +110,13 @@ export function SelectApp() {
             </button>
           )}
         </div>
+
+        {canceled && (
+          <div className="info-banner">
+            <span className="info-banner-icon">ℹ️</span>
+            <p>You closed the tone browser without selecting a tone.</p>
+          </div>
+        )}
 
         {error && (
           <ErrorBanner message={error} onDismiss={() => setError(null)} />

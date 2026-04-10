@@ -1,9 +1,10 @@
 // src/apps/FullApiApp.tsx
 import { useState, useEffect, useCallback } from 'react';
-import { PUBLISHABLE_KEY, REDIRECT_URI } from '../config';
+import { PUBLISHABLE_KEY_FULL, REDIRECT_URI } from '../config';
 import { startStandardFlow } from '../tone3000-client';
 import { t3kClient } from '../App';
 import { ToneCard } from '../components/ToneCard';
+import { CrossOriginImage } from '../components/CrossOriginImage';
 import { ModelList } from '../components/ModelList';
 import { Pagination } from '../components/Pagination';
 import { Spinner } from '../components/Spinner';
@@ -48,7 +49,7 @@ export function FullApiApp() {
 
   const handleConnect = () => {
     sessionStorage.setItem('t3k_pending_demo', 'full-api');
-    startStandardFlow(PUBLISHABLE_KEY, REDIRECT_URI);
+    startStandardFlow(PUBLISHABLE_KEY_FULL, REDIRECT_URI);
   };
 
   const handleDisconnect = () => {
@@ -175,7 +176,7 @@ export function FullApiApp() {
           <div className="app-brand">
             <div className="app-logo-block">
               <span className="app-logo-icon">🗄️</span>
-              <span className="app-name">Tone Vault</span>
+              <span className="app-name">Chord Inc</span>
             </div>
             <span className="app-tagline">Tone Discovery & Management</span>
           </div>
@@ -186,7 +187,7 @@ export function FullApiApp() {
             <h2 className="connect-state-title">Connect to TONE3000</h2>
             <p className="connect-state-desc">
               Browse the TONE3000 tone library, access your created tones,
-              manage favorites, and download model files — all within Tone Vault.
+              manage favorites, and download model files — all within Chord Inc.
             </p>
             <button className="btn btn-primary btn-t3k btn-large" onClick={handleConnect}>
               <img src={t3kLogo} alt="" className="btn-logo" />
@@ -207,7 +208,7 @@ export function FullApiApp() {
         <div className="app-brand">
           <div className="app-logo-block">
             <span className="app-logo-icon">🗄️</span>
-            <span className="app-name">Tone Vault</span>
+            <span className="app-name">Chord Inc</span>
           </div>
         </div>
         <div className="header-actions">
@@ -257,7 +258,7 @@ export function FullApiApp() {
               </button>
 
               {selectedTone.images?.[0] && (
-                <img src={selectedTone.images[0]} alt={selectedTone.title} className="tone-detail-hero" />
+                <CrossOriginImage src={selectedTone.images[0]} alt={selectedTone.title} className="tone-detail-hero" />
               )}
 
               <div className="tone-detail-header">
@@ -301,10 +302,7 @@ export function FullApiApp() {
 
               <div className="model-section">
                 <h3 className="model-section-title">Models ({selectedTone.models.length})</h3>
-                <ModelList
-                  models={selectedTone.models}
-                  onDownload={model => t3kClient.downloadModel(model.model_url, model.name)}
-                />
+                <ModelList models={selectedTone.models} />
               </div>
             </div>
           )}
@@ -317,7 +315,7 @@ export function FullApiApp() {
                 <div className="profile-section">
                   {!user ? <Spinner /> : (
                     <div className="profile-card">
-                      {user.avatar_url && <img src={user.avatar_url} alt={user.username} className="profile-avatar" />}
+                      {user.avatar_url && <CrossOriginImage src={user.avatar_url} alt={user.username} className="profile-avatar" />}
                       <h2 className="profile-username">@{user.username}</h2>
                       {user.bio && <p className="profile-bio">{user.bio}</p>}
                       {user.links?.map(link => (
@@ -405,7 +403,7 @@ export function FullApiApp() {
                         {artists.map(artist => (
                           <div key={artist.id} className="artist-card">
                             {artist.avatar_url && (
-                              <img src={artist.avatar_url} alt={artist.username} className="artist-avatar" />
+                              <CrossOriginImage src={artist.avatar_url} alt={artist.username} className="artist-avatar" />
                             )}
                             <h3 className="artist-name">@{artist.username}</h3>
                             {artist.bio && <p className="artist-bio">{artist.bio}</p>}

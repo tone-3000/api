@@ -1,6 +1,6 @@
 // src/apps/LoadModelApp.tsx
 import { useState, useEffect } from 'react';
-import { PUBLISHABLE_KEY, REDIRECT_URI } from '../config';
+import { PUBLISHABLE_KEY_LOAD, REDIRECT_URI } from '../config';
 import { startLoadModelFlow } from '../tone3000-client';
 import { t3kClient } from '../App';
 import { Spinner } from '../components/Spinner';
@@ -61,7 +61,7 @@ export function LoadModelApp() {
     setError(null);
     sessionStorage.setItem('t3k_pending_demo', 'load-model');
     sessionStorage.setItem('t3k_active_slot_id', slot.id);
-    startLoadModelFlow(PUBLISHABLE_KEY, REDIRECT_URI, slot.modelId);
+    startLoadModelFlow(PUBLISHABLE_KEY_LOAD, REDIRECT_URI, slot.modelId);
   };
 
   const handleDownload = async () => {

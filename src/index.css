@@ -64,7 +64,7 @@ img { display: block; max-width: 100%; }
 .back-link { font-size: 13px; color: var(--text-2); }
 .back-link:hover { color: var(--text); }
 
-/* Full-width layout for ToneVault */
+/* Full-width layout for Chord Inc */
 .app-shell--full .app-main { max-width: 100%; padding: 0; }
 .full-app-layout { display: flex; flex: 1; min-height: 0; }
 .sidebar { width: 200px; flex-shrink: 0; padding: 16px; border-right: 1px solid var(--border); display: flex; flex-direction: column; gap: 4px; background: var(--surface); }
@@ -116,11 +116,11 @@ img { display: block; max-width: 100%; }
 button.tone-card { transition: border-color 0.15s, box-shadow 0.15s; color: var(--text); }
 button.tone-card:hover { border-color: var(--accent); box-shadow: 0 2px 8px rgba(37,99,235,0.08); }
 .tone-card--compact { }
-.tone-card-image { width: 100%; height: 160px; object-fit: cover; }
+.tone-card-image { width: 50%; aspect-ratio: 1; object-fit: cover; margin: 16px auto 0; display: block; border-radius: 8px; border: 1px solid var(--border); box-shadow: 0 1px 4px rgba(0,0,0,0.08); }
 .tone-card-body { padding: 16px; display: flex; flex-direction: column; gap: 8px; }
 .tone-card-title { font-size: 16px; font-weight: 700; }
 .tone-card-creator { font-size: 12px; color: var(--text-2); }
-.tone-card-desc { font-size: 13px; color: var(--text-2); line-height: 1.5; }
+.tone-card-desc { font-size: 13px; color: var(--text-2); line-height: 1.5; white-space: pre-wrap; }
 .tone-card-badges { display: flex; flex-wrap: wrap; gap: 6px; }
 .tone-card-stats { display: flex; gap: 16px; font-size: 12px; color: var(--text-3); margin-top: 4px; }
 
@@ -141,6 +141,7 @@ button.tone-card:hover { border-color: var(--accent); box-shadow: 0 2px 8px rgba
 .model-row-info { display: flex; align-items: center; gap: 10px; }
 .model-row-name { font-size: 14px; font-weight: 500; }
 .model-row-actions { display: flex; align-items: center; gap: 8px; }
+.model-row-actions .neural-amp-modeler { border-radius: 8px; overflow: hidden; padding: 4px; display: flex; align-items: center; }
 .model-row-error { font-size: 12px; color: var(--error); }
 .empty-list { color: var(--text-2); font-size: 13px; padding: 16px 0; }
 
@@ -211,7 +212,7 @@ button.tone-card:hover { border-color: var(--accent); box-shadow: 0 2px 8px rgba
 .pagination { display: flex; align-items: center; gap: 12px; justify-content: center; padding: 20px 0; }
 .pagination-info { font-size: 13px; color: var(--text-2); }
 
-/* ─── Tone detail page (ToneVault) ───────────────────────────────────────────── */
+/* ─── Tone detail page (Chord Inc) ───────────────────────────────────────────── */
 .tone-detail-page { display: flex; flex-direction: column; gap: 16px; max-width: 720px; }
 .tone-detail-page-loading { display: flex; align-items: center; gap: 12px; padding: 48px 0; color: var(--text-2); font-size: 14px; }
 .tone-detail-back { align-self: flex-start; }

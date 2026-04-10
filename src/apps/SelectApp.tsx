@@ -1,6 +1,6 @@
 // src/apps/SelectApp.tsx
 import { useState, useEffect, useRef } from 'react';
-import { PUBLISHABLE_KEY, REDIRECT_URI } from '../config';
+import { PUBLISHABLE_KEY_SELECT, REDIRECT_URI } from '../config';
 import { startSelectFlowPopup, handleOAuthCallbackFromPopup } from '../tone3000-client';
 import { t3kClient } from '../App';
 import { ToneCard } from '../components/ToneCard';
@@ -16,6 +16,7 @@ export function SelectApp() {
   const [tone, setTone] = useState<ToneWithModels | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [canceled, setCanceled] = useState(false);
   const [browsing, setBrowsing] = useState(false);
   const popupRef = useRef<Window | null>(null);
 
@@ -27,13 +28,26 @@ export function SelectApp() {
       // so the popup-closed interval can't land on "No Tone Loaded" mid-flight.
       setBrowsing(false);
       setLoading(true);
-      const result = await handleOAuthCallbackFromPopup(PUBLISHABLE_KEY, REDIRECT_URI, event);
-      if (!result || !result.ok) {
+      const result = await handleOAuthCallbackFromPopup(PUBLISHABLE_KEY_SELECT, REDIRECT_URI, event);
+      if (!result) {
         setLoading(false);
-        setError('Authentication failed. Please try again.');
+        return;
+      }
+      if (!result.ok) {
+        setLoading(false);
+        if (result.error === 'canceled') {
+          setCanceled(true);
+        } else {
+          setError('Authentication failed. Please try again.');
+        }
         return;
       }
       t3kClient.setTokens(result.tokens);
+      if (result.canceled) {
+        setCanceled(true);
+        setLoading(false);
+        return;
+      }
       if (result.toneId) {
         Promise.all([
           t3kClient.getTone(result.toneId),
@@ -69,8 +83,9 @@ export function SelectApp() {
   }, [browsing]);
 
   const handleBrowse = () => {
+    setCanceled(false);
     setBrowsing(true);
-    startSelectFlowPopup(PUBLISHABLE_KEY, REDIRECT_URI, { gears: 'full-rig' })
+    startSelectFlowPopup(PUBLISHABLE_KEY_SELECT, REDIRECT_URI, { gears: 'full-rig', menubar: true })
       .then((popup) => { popupRef.current = popup; });
   };
 
@@ -80,7 +95,7 @@ export function SelectApp() {
         <div className="app-brand">
           <div className="app-logo-block">
             <span className="app-logo-icon">🎸</span>
-            <span className="app-name">Amp Hub</span>
+            <span className="app-name">Acme Inc</span>
           </div>
           <span className="app-tagline">Guitar Amp Simulation</span>
         </div>
@@ -95,6 +110,13 @@ export function SelectApp() {
             </button>
           )}
         </div>
+
+        {canceled && (
+          <div className="info-banner">
+            <span className="info-banner-icon">ℹ️</span>
+            <p>You closed the tone browser without selecting a tone.</p>
+          </div>
+        )}
 
         {error && (
           <ErrorBanner message={error} onDismiss={() => setError(null)} />
@@ -120,7 +142,7 @@ export function SelectApp() {
                 <div className="empty-state-icon">🎛️</div>
                 <h3 className="empty-state-title">No Tone Loaded</h3>
                 <p className="empty-state-desc">
-                  Browse the TONE3000 catalog to find a tone and load it into AmpHub.
+                  Browse the TONE3000 catalog to find a tone and load it into Acme Inc.
                   You'll be able to download and activate the model directly.
                 </p>
                 <button className="btn btn-primary btn-t3k" onClick={handleBrowse}>
@@ -137,10 +159,7 @@ export function SelectApp() {
             <ToneCard tone={tone} />
             <div className="model-section">
               <h3 className="model-section-title">Models</h3>
-              <ModelList
-                models={tone.models}
-                onDownload={(model) => t3kClient.downloadModel(model.model_url, model.name)}
-              />
+              <ModelList models={tone.models} />
             </div>
           </div>
         )}

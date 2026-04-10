@@ -1,6 +1,6 @@
 // src/apps/LoadToneApp.tsx
 import { useState, useEffect, useRef } from 'react';
-import { PUBLISHABLE_KEY, REDIRECT_URI } from '../config';
+import { PUBLISHABLE_KEY_LOAD, REDIRECT_URI } from '../config';
 import {
   startLoadToneFlowPopup,
   handleOAuthCallbackFromPopup,
@@ -36,6 +36,7 @@ export function LoadToneApp() {
   const [requestedToneId, setRequestedToneId] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [canceled, setCanceled] = useState(false);
   const [activePresetId, setActivePresetId] = useState<string | null>(null);
   const popupRef = useRef<Window | null>(null);
 
@@ -66,13 +67,21 @@ export function LoadToneApp() {
   // Listen for the OAuth callback relayed from the popup (postMessage or BroadcastChannel).
   useEffect(() => {
     const handleMessage = async (event: MessageEvent) => {
-      const result = await handleOAuthCallbackFromPopup(PUBLISHABLE_KEY, REDIRECT_URI, event);
+      const result = await handleOAuthCallbackFromPopup(PUBLISHABLE_KEY_LOAD, REDIRECT_URI, event);
       if (!result) return;
       if (!result.ok) {
+        if (result.error === 'canceled') {
+          setCanceled(true);
+          return;
+        }
         setError('Authentication failed. Please try again.');
         return;
       }
       t3kClient.setTokens(result.tokens);
+      if (result.canceled) {
+        setCanceled(true);
+        return;
+      }
       if (result.toneId) {
         setLoading(true);
         Promise.all([
@@ -99,14 +108,15 @@ export function LoadToneApp() {
 
   const handleLoad = (preset: Preset) => {
     setError(null);
+    setCanceled(false);
     setActivePresetId(preset.id);
     setRequestedToneId(preset.toneId);
     sessionStorage.setItem('t3k_pending_demo', 'load-tone');
 
     const openPopup = () => {
       setLoadedTone(null);
-      const options = preset.gears ? { gears: preset.gears } : undefined;
-      return startLoadToneFlowPopup(PUBLISHABLE_KEY, REDIRECT_URI, preset.toneId, options)
+      const options = { ...(preset.gears ? { gears: preset.gears } : {}), menubar: true };
+      return startLoadToneFlowPopup(PUBLISHABLE_KEY_LOAD, REDIRECT_URI, preset.toneId, options)
         .then((popup) => { popupRef.current = popup; });
     };
 
@@ -145,13 +155,19 @@ export function LoadToneApp() {
         <div className="app-brand">
           <div className="app-logo-block">
             <span className="app-logo-icon">🔄</span>
-            <span className="app-name">Rig Sync</span>
+            <span className="app-name">Beacon Inc</span>
           </div>
           <span className="app-tagline">Preset Management</span>
         </div>
       </header>
 
       <main className="app-main">
+        {canceled && (
+          <div className="info-banner">
+            <span className="info-banner-icon">ℹ️</span>
+            <p>You closed TONE3000 without loading a tone.</p>
+          </div>
+        )}
         {error && <ErrorBanner message={error} onDismiss={() => setError(null)} />}
 
         {loading ? (
@@ -192,10 +208,7 @@ export function LoadToneApp() {
                   <ToneCard tone={loadedTone} />
                   <div className="model-section">
                     <h3 className="model-section-title">Models</h3>
-                    <ModelList
-                      models={loadedTone.models}
-                      onDownload={(model) => t3kClient.downloadModel(model.model_url, model.name)}
-                    />
+                    <ModelList models={loadedTone.models} />
                   </div>
                 </>
               ) : (

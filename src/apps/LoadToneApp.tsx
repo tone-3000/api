@@ -1,6 +1,6 @@
 // src/apps/LoadToneApp.tsx
 import { useState, useEffect, useRef } from 'react';
-import { PUBLISHABLE_KEY, REDIRECT_URI } from '../config';
+import { PUBLISHABLE_KEY_LOAD, REDIRECT_URI } from '../config';
 import {
   startLoadToneFlowPopup,
   handleOAuthCallbackFromPopup,
@@ -67,7 +67,7 @@ export function LoadToneApp() {
   // Listen for the OAuth callback relayed from the popup (postMessage or BroadcastChannel).
   useEffect(() => {
     const handleMessage = async (event: MessageEvent) => {
-      const result = await handleOAuthCallbackFromPopup(PUBLISHABLE_KEY, REDIRECT_URI, event);
+      const result = await handleOAuthCallbackFromPopup(PUBLISHABLE_KEY_LOAD, REDIRECT_URI, event);
       if (!result) return;
       if (!result.ok) {
         if (result.error === 'canceled') {
@@ -116,7 +116,7 @@ export function LoadToneApp() {
     const openPopup = () => {
       setLoadedTone(null);
       const options = { ...(preset.gears ? { gears: preset.gears } : {}), menubar: true };
-      return startLoadToneFlowPopup(PUBLISHABLE_KEY, REDIRECT_URI, preset.toneId, options)
+      return startLoadToneFlowPopup(PUBLISHABLE_KEY_LOAD, REDIRECT_URI, preset.toneId, options)
         .then((popup) => { popupRef.current = popup; });
     };
 
@@ -155,7 +155,7 @@ export function LoadToneApp() {
         <div className="app-brand">
           <div className="app-logo-block">
             <span className="app-logo-icon">🔄</span>
-            <span className="app-name">Rig Sync</span>
+            <span className="app-name">Beacon Inc</span>
           </div>
           <span className="app-tagline">Preset Management</span>
         </div>
@@ -208,10 +208,7 @@ export function LoadToneApp() {
                   <ToneCard tone={loadedTone} />
                   <div className="model-section">
                     <h3 className="model-section-title">Models</h3>
-                    <ModelList
-                      models={loadedTone.models}
-                      onDownload={(model) => t3kClient.downloadModel(model.model_url, model.name)}
-                    />
+                    <ModelList models={loadedTone.models} />
                   </div>
                 </>
               ) : (

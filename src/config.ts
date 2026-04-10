@@ -5,5 +5,13 @@ export const T3K_API =
 
 export const PUBLISHABLE_KEY = import.meta.env.VITE_PUBLISHABLE_KEY as string;
 
+// Per-demo keys — fall back to the shared PUBLISHABLE_KEY for local dev
+export const PUBLISHABLE_KEY_SELECT =
+  (import.meta.env.VITE_PUBLISHABLE_KEY_SELECT as string | undefined) ?? PUBLISHABLE_KEY;
+export const PUBLISHABLE_KEY_LOAD =
+  (import.meta.env.VITE_PUBLISHABLE_KEY_LOAD as string | undefined) ?? PUBLISHABLE_KEY;
+export const PUBLISHABLE_KEY_FULL =
+  (import.meta.env.VITE_PUBLISHABLE_KEY_FULL as string | undefined) ?? PUBLISHABLE_KEY;
+
 export const REDIRECT_URI =
   (import.meta.env.VITE_REDIRECT_URI as string | undefined) ?? 'http://localhost:3001';

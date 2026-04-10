@@ -1,6 +1,6 @@
 // App.tsx
 import { useState, useEffect } from 'react';
-import { PUBLISHABLE_KEY, REDIRECT_URI } from './config';
+import { PUBLISHABLE_KEY_FULL, REDIRECT_URI } from './config';
 import { handleOAuthCallback, T3KClient, startStandardFlow } from './tone3000-client';
 import { SelectApp } from './apps/SelectApp';
 import { LoadToneApp } from './apps/LoadToneApp';
@@ -38,14 +38,14 @@ import t3kLogo from './assets/t3k.svg';
 })();
 
 // One shared client — sessionStorage tokens survive page refreshes
-export const t3kClient = new T3KClient(PUBLISHABLE_KEY, () => {
+export const t3kClient = new T3KClient(PUBLISHABLE_KEY_FULL, () => {
   const demo = getActiveDemo();
   // Popup-based demos handle re-auth via popup —
   // don't do a full-page redirect that would break the popup UX.
   if (demo === 'load-tone') return;
   // Re-authenticate silently; user won't see login if still signed into TONE3000
   sessionStorage.setItem('t3k_pending_demo', demo ?? 'full-api');
-  startStandardFlow(PUBLISHABLE_KEY, REDIRECT_URI);
+  startStandardFlow(PUBLISHABLE_KEY_FULL, REDIRECT_URI);
 });
 
 function getActiveDemo(): Demo | null {
@@ -81,7 +81,7 @@ export default function App() {
 
     setProcessing(true);
 
-    handleOAuthCallback(PUBLISHABLE_KEY, REDIRECT_URI).then((result) => {
+    handleOAuthCallback(PUBLISHABLE_KEY_FULL, REDIRECT_URI).then((result) => {
       if (result.ok) {
         t3kClient.setTokens(result.tokens);
         if (result.toneId) sessionStorage.setItem('t3k_resolved_tone_id', result.toneId);
@@ -129,11 +129,11 @@ export default function App() {
 
         <button className="demo-card" onClick={() => navigateTo('select')}>
           <div className="demo-card-tag">Select Flow</div>
-          <h2 className="demo-card-title">Amp Hub</h2>
+          <h2 className="demo-card-title">Acme Inc</h2>
           <p className="demo-card-product">Guitar Amp Simulation Plugin</p>
           <p className="demo-card-desc">
-            Amp Hub lets users browse the TONE3000 catalog and select a tone to load
-            into the plugin. No tone UI to build — TONE3000 handles selection.
+            Acme Inc lets users browse the TONE3000 catalog and select a tone to load
+            into the app. No tone UI to build — TONE3000 handles selection.
           </p>
           <div className="demo-card-use-case">
             Best for: Plugins, DAWs, apps where TONE3000 drives tone discovery
@@ -143,11 +143,11 @@ export default function App() {
 
         <button className="demo-card" onClick={() => navigateTo('load-tone')}>
           <div className="demo-card-tag">Load Tone Flow</div>
-          <h2 className="demo-card-title">Rig Sync</h2>
+          <h2 className="demo-card-title">Beacon Inc</h2>
           <p className="demo-card-product">Rig Preset Management App</p>
           <p className="demo-card-desc">
-            Rig Sync stores tone IDs and syncs them from TONE3000 on demand.
-            The user authenticates once; Rig Sync handles access errors gracefully.
+            Beacon Inc stores tone IDs and syncs them from TONE3000 on demand.
+            The user authenticates once; Beacon Inc handles access errors gracefully.
           </p>
           <div className="demo-card-use-case">
             Best for: Apps with saved tone references that need auth + access checking
@@ -157,10 +157,10 @@ export default function App() {
 
         <button className="demo-card" onClick={() => navigateTo('full-api')}>
           <div className="demo-card-tag">Full API Integration</div>
-          <h2 className="demo-card-title">Tone Vault</h2>
+          <h2 className="demo-card-title">Chord Inc</h2>
           <p className="demo-card-product">Tone Discovery & Management App</p>
           <p className="demo-card-desc">
-            Tone Vault shows every documented API endpoint: search, filter, browse
+            Chord Inc shows every documented API endpoint: search, filter, browse
             creators, view tone details, download models, and manage favorites.
           </p>
           <div className="demo-card-use-case">

@@ -1,5 +1,6 @@
 // src/components/ToneCard.tsx
 import type { Tone } from '../types';
+import { CrossOriginImage } from './CrossOriginImage';
 
 interface Props {
   tone: Tone;
@@ -23,7 +24,7 @@ export function ToneCard({ tone, onClick, compact = false }: Props) {
   return (
     <Tag className={`tone-card ${compact ? 'tone-card--compact' : ''}`} onClick={onClick}>
       {tone.images?.[0] && (
-        <img src={tone.images[0]} alt={tone.title} className="tone-card-image" />
+        <CrossOriginImage src={tone.images[0]} alt={tone.title} className="tone-card-image" />
       )}
       <div className="tone-card-body">
         <h3 className="tone-card-title">{tone.title}</h3>

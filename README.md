@@ -10,21 +10,21 @@ Run any of them locally in minutes using your own TONE3000 API key.
 
 ## Demo Apps
 
-### 🎸 Amp Hub — Select Flow
+### 🎸 Acme Inc — Select Flow
 *Best for: Plugins, DAWs, and apps where TONE3000 drives tone discovery.*
 
-AmpHub is a guitar amp simulation plugin. When a user clicks "Browse Tones on
+Acme Inc is a guitar amp simulation plugin. When a user clicks "Browse Tones on
 TONE3000", they're taken to the TONE3000 catalog to browse and select a tone.
-Once selected, AmpHub receives the tone and its downloadable model files.
+Once selected, Acme Inc receives the tone and its downloadable model files.
 
 **Flow:** `GET /api/v1/oauth/authorize?prompt=select_tone` → callback with `tone_id` → `GET /api/v1/tones/{id}` + `GET /api/v1/models?tone_id={id}`
 
 ---
 
-### 🔄 Rig Sync — Load Tone Flow
+### 🔄 Beacon Inc — Load Tone Flow
 *Best for: Apps with saved tone references that need authentication and access checking.*
 
-Rig Sync is a rig preset manager. It stores TONE3000 tone IDs in its presets and
+Beacon Inc is a rig preset manager. It stores TONE3000 tone IDs in its presets and
 loads them on demand. TONE3000 handles the auth check — if a tone is private or
 deleted, the user can pick a replacement without leaving the flow. Optional `gears`
 and `platform` filters scope the replacement browse view to your product's supported types.
@@ -33,10 +33,10 @@ and `platform` filters scope the replacement browse view to your product's suppo
 
 ---
 
-### 🗄️ Tone Vault — Full API Integration
+### 🗄️ Chord Inc — Full API Integration
 *Best for: Apps with a custom tone browsing and discovery experience.*
 
-Tone Vault demonstrates every documented TONE3000 endpoint: search with filters,
+Chord Inc demonstrates every documented TONE3000 endpoint: search with filters,
 tone detail views, user profiles, favorites, model listings, and file downloads.
 It's the reference implementation for a full API integration.
 

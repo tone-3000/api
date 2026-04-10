@@ -1,7 +1,10 @@
 // config.ts — TONE3000 API configuration
 // T3K_API points to production. VITE_T3K_API_DOMAIN can override for development.
-export const T3K_API =
-  (import.meta.env.VITE_T3K_API_DOMAIN as string | undefined) ?? 'https://www.tone3000.com';
+// Trailing slashes are stripped so `${T3K_API}/api/...` never produces a double slash —
+// Vercel 308-redirects double-slash paths, and redirects drop CORS headers.
+export const T3K_API = (
+  (import.meta.env.VITE_T3K_API_DOMAIN as string | undefined) ?? 'https://www.tone3000.com'
+).replace(/\/+$/, '');
 
 export const PUBLISHABLE_KEY = import.meta.env.VITE_PUBLISHABLE_KEY as string;
 

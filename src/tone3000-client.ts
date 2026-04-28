@@ -125,8 +125,6 @@ export async function startSelectFlowPopup(
   if (options?.architecture) extra.architecture = options.architecture.toString();
   const url = buildAuthorizeUrl(publishableKey, redirectUri, extra, pkce);
 
-  console.log(url);
-
   const width = 480;
   const height = 700;
   const left = Math.round(window.screenX + (window.outerWidth - width) / 2);

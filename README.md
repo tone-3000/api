@@ -16,8 +16,10 @@ Run any of them locally in minutes using your own TONE3000 API key.
 Acme Inc is a guitar amp simulation plugin. When a user clicks "Browse Tones on
 TONE3000", they're taken to the TONE3000 catalog to browse and select a tone.
 Once selected, Acme Inc receives the tone and its downloadable model files.
+Optional `gears`, `platform`, and `architecture` query params scope the catalog
+to your product's supported types.
 
-**Flow:** `GET /api/v1/oauth/authorize?prompt=select_tone` → callback with `tone_id` → `GET /api/v1/tones/{id}` + `GET /api/v1/models?tone_id={id}`
+**Flow:** `GET /api/v1/oauth/authorize?prompt=select_tone&gears=full-rig&architecture=2` → callback with `tone_id` → `GET /api/v1/tones/{id}` + `GET /api/v1/models?tone_id={id}`
 
 ---
 
@@ -26,10 +28,10 @@ Once selected, Acme Inc receives the tone and its downloadable model files.
 
 Beacon Inc is a rig preset manager. It stores TONE3000 tone IDs in its presets and
 loads them on demand. TONE3000 handles the auth check — if a tone is private or
-deleted, the user can pick a replacement without leaving the flow. Optional `gears`
-and `platform` filters scope the replacement browse view to your product's supported types.
+deleted, the user can pick a replacement without leaving the flow. Optional `gears`,
+`platform`, and `architecture` filters scope the replacement browse view to your product's supported types.
 
-**Flow:** `GET /api/v1/oauth/authorize?prompt=load_tone&tone_id=42&gears=amp` → callback with `tone_id` + code → fetch tone
+**Flow:** `GET /api/v1/oauth/authorize?prompt=load_tone&tone_id=42&gears=amp&architecture=2` → callback with `tone_id` + code → fetch tone
 
 ---
 
@@ -95,11 +97,12 @@ inspiration for your own integration.
 import { startSelectFlow, startLoadToneFlow, startStandardFlow, handleOAuthCallback, T3KClient } from './tone3000-client';
 
 // Select Flow — user browses TONE3000 and picks a tone
-await startSelectFlow(PUBLISHABLE_KEY, REDIRECT_URI);
+// Optional: gears, platform, architecture, menubar (same query params as authorize URL)
+await startSelectFlow(PUBLISHABLE_KEY, REDIRECT_URI, { gears: 'full-rig', architecture: 2 });
 
 // Load Tone Flow — TONE3000 authenticates the user and checks access to a specific tone
-// Optional: pass gears/platform to filter the replacement browse view if the tone is inaccessible
-await startLoadToneFlow(PUBLISHABLE_KEY, REDIRECT_URI, toneId, { gears: 'amp', platform: 'nam' });
+// Optional: pass gears/platform/architecture to filter the replacement browse view if the tone is inaccessible
+await startLoadToneFlow(PUBLISHABLE_KEY, REDIRECT_URI, toneId, { gears: 'amp', platform: 'nam', architecture: 2 });
 
 // Standard Flow — user connects their TONE3000 account; app fetches tones programmatically
 await startStandardFlow(PUBLISHABLE_KEY, REDIRECT_URI);

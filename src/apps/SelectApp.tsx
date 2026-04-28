@@ -85,7 +85,7 @@ export function SelectApp() {
   const handleBrowse = () => {
     setCanceled(false);
     setBrowsing(true);
-    startSelectFlowPopup(PUBLISHABLE_KEY_SELECT, REDIRECT_URI, { gears: 'full-rig', menubar: true })
+    startSelectFlowPopup(PUBLISHABLE_KEY_SELECT, REDIRECT_URI, { gears: 'full-rig', menubar: true, architecture: 2 })
       .then((popup) => { popupRef.current = popup; });
   };
 

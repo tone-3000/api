@@ -115,7 +115,11 @@ export function LoadToneApp() {
 
     const openPopup = () => {
       setLoadedTone(null);
-      const options = { ...(preset.gears ? { gears: preset.gears } : {}), menubar: true };
+      const options = {
+        ...(preset.gears ? { gears: preset.gears } : {}),
+        menubar: true,
+        architecture: 2,
+      };
       return startLoadToneFlowPopup(PUBLISHABLE_KEY_LOAD, REDIRECT_URI, preset.toneId, options)
         .then((popup) => { popupRef.current = popup; });
     };

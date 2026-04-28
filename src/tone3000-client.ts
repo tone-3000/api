@@ -82,19 +82,21 @@ function buildAuthorizeUrl(
  * catalog. After the user selects a tone, they're redirected back to your app
  * with an authorization code and the selected `tone_id`.
  *
- * @param gears - Optional underscore-separated gear filter (e.g. 'amp_pedal')
- * @param platform - Optional platform filter (e.g. 'nam', 'aida-x')
+ * Optional `options`: `gears` (underscore-separated, e.g. `amp_pedal`), `platform`
+ * (e.g. `nam`, `aida-x`), `architecture` (numeric), `menubar` (UI hint) — each is
+ * forwarded as an authorize query param when set.
  */
 export async function startSelectFlow(
   publishableKey: string,
   redirectUri: string,
-  options?: { gears?: string; platform?: string; menubar?: boolean }
+  options?: { gears?: string; platform?: string; menubar?: boolean; architecture?: number }
 ): Promise<void> {
   const pkce = await buildPkceParams();
   const extra: Record<string, string> = { prompt: 'select_tone' };
   if (options?.gears) extra.gears = options.gears;
   if (options?.platform) extra.platform = options.platform;
   if (options?.menubar) extra.menubar = 'true';
+  if (options?.architecture) extra.architecture = options.architecture.toString();
   window.location.href = buildAuthorizeUrl(publishableKey, redirectUri, extra, pkce);
 }
 
@@ -104,11 +106,13 @@ export async function startSelectFlow(
  * Same as `startSelectFlow` but opens in a popup. The user stays on your app while
  * browsing TONE3000. When a tone is selected, the popup relays the result back via
  * `postMessage` or `BroadcastChannel` — handle it with `handleOAuthCallbackFromPopup`.
+ * Supports the same optional `gears`, `platform`, `architecture`, and `menubar`
+ * as `startSelectFlow`.
  */
 export async function startSelectFlowPopup(
   publishableKey: string,
   redirectUri: string,
-  options?: { gears?: string; platform?: string; menubar?: boolean }
+  options?: { gears?: string; platform?: string; menubar?: boolean; architecture?: number }
 ): Promise<Window | null> {
   // Set before window.open so the popup inherits this flag via sessionStorage copy;
   // remove it from the parent immediately so only the popup retains it.
@@ -118,7 +122,10 @@ export async function startSelectFlowPopup(
   if (options?.gears) extra.gears = options.gears;
   if (options?.platform) extra.platform = options.platform;
   if (options?.menubar) extra.menubar = 'true';
+  if (options?.architecture) extra.architecture = options.architecture.toString();
   const url = buildAuthorizeUrl(publishableKey, redirectUri, extra, pkce);
+
+  console.log(url);
 
   const width = 480;
   const height = 700;
@@ -196,8 +203,8 @@ export async function handleOAuthCallbackFromPopup(
  *
  * If the tone is private or has been deleted, TONE3000 shows an error page
  * where the user can browse for a replacement. In that case, the `tone_id` in
- * the callback may differ from the one you requested. Any `gears` or `platform`
- * filters you pass are applied to that replacement browse view.
+ * the callback may differ from the one you requested. Any `gears`, `platform`,
+ * or `architecture` filters you pass are applied to that replacement browse view.
  *
  * @param gears - Optional underscore-separated gear filter (e.g. 'amp_full-rig')
  * @param platform - Optional platform filter (e.g. 'nam', 'aida-x')
@@ -206,13 +213,14 @@ export async function startLoadToneFlow(
   publishableKey: string,
   redirectUri: string,
   toneId: number | string,
-  options?: { gears?: string; platform?: string; menubar?: boolean }
+  options?: { gears?: string; platform?: string; menubar?: boolean; architecture?: number }
 ): Promise<void> {
   const pkce = await buildPkceParams();
   const extra: Record<string, string> = { prompt: 'load_tone', tone_id: String(toneId) };
   if (options?.gears) extra.gears = options.gears;
   if (options?.platform) extra.platform = options.platform;
   if (options?.menubar) extra.menubar = 'true';
+  if (options?.architecture) extra.architecture = options.architecture.toString();
   window.location.href = buildAuthorizeUrl(publishableKey, redirectUri, extra, pkce);
 }
 
@@ -221,14 +229,14 @@ export async function startLoadToneFlow(
  *
  * Same as `startLoadToneFlow` but opens in a popup. When the flow completes, the
  * popup relays the result back via `postMessage` or `BroadcastChannel` — handle it
- * with `handleOAuthCallbackFromPopup`. Any `gears` or `platform` filters you pass
- * are applied if the user needs to browse for a replacement tone.
+ * with `handleOAuthCallbackFromPopup`. Any `gears`, `platform`, or `architecture`
+ * filters you pass are applied if the user needs to browse for a replacement tone.
  */
 export async function startLoadToneFlowPopup(
   publishableKey: string,
   redirectUri: string,
   toneId: number | string,
-  options?: { gears?: string; platform?: string; menubar?: boolean }
+  options?: { gears?: string; platform?: string; menubar?: boolean; architecture?: number }
 ): Promise<Window | null> {
   // Set before window.open so the popup inherits this flag via sessionStorage copy;
   // remove it from the parent immediately so only the popup retains it.
@@ -238,6 +246,7 @@ export async function startLoadToneFlowPopup(
   if (options?.gears) extra.gears = options.gears;
   if (options?.platform) extra.platform = options.platform;
   if (options?.menubar) extra.menubar = 'true';
+  if (options?.architecture) extra.architecture = options.architecture.toString();
   const url = buildAuthorizeUrl(publishableKey, redirectUri, extra, pkce);
   const width = 480;
   const height = 700;
@@ -250,13 +259,14 @@ export async function startLoadToneFlowPopup(
 
 /**
  * **Load Tone Flow (Popup, model_id variant)** — Open TONE3000 in a popup to
- * authenticate and load a tone resolved from a specific model.
+ * authenticate and load a tone resolved from a specific model. Optional
+ * `gears`, `platform`, or `architecture` apply if the user browses for a replacement.
  */
 export async function startLoadToneFlowPopupByModelId(
   publishableKey: string,
   redirectUri: string,
   modelId: number | string,
-  options?: { gears?: string; platform?: string; menubar?: boolean }
+  options?: { gears?: string; platform?: string; menubar?: boolean; architecture?: number }
 ): Promise<Window | null> {
   sessionStorage.setItem('t3k_popup_mode', '1');
   const pkce = await buildPkceParams();
@@ -264,6 +274,7 @@ export async function startLoadToneFlowPopupByModelId(
   if (options?.gears) extra.gears = options.gears;
   if (options?.platform) extra.platform = options.platform;
   if (options?.menubar) extra.menubar = 'true';
+  if (options?.architecture) extra.architecture = options.architecture.toString();
   const url = buildAuthorizeUrl(publishableKey, redirectUri, extra, pkce);
   const width = 480;
   const height = 700;
@@ -561,9 +572,15 @@ export class T3KClient {
     return res.json();
   }
 
-  /** List models for a tone. */
+  /** List models for a tone (filtered with `architecture=2` to match typical plugin targets). */
   async listModels(toneId: number | string, page = 1, pageSize = 10): Promise<PaginatedResponse<Model>> {
-    const res = await this.fetch(`/api/v1/models?tone_id=${toneId}&page=${page}&page_size=${pageSize}`);
+    const qs = new URLSearchParams({
+      tone_id: String(toneId),
+      page: String(page),
+      page_size: String(pageSize),
+      architecture: '2',
+    });
+    const res = await this.fetch(`/api/v1/models?${qs}`);
     if (!res.ok) throw new Error(`listModels failed: ${res.status}`);
     return res.json();
   }

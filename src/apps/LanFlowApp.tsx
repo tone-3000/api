@@ -14,9 +14,10 @@
 import { useState, useEffect, useRef } from 'react';
 import QRCode from 'qrcode';
 import { PUBLISHABLE_KEY } from '../config';
-import { startLanRelayFlow, exchangeCode, T3KClient } from '../tone3000-client';
+import { startLanRelayFlow, exchangeCode } from '../tone3000-client';
 import type { T3KTokens, OAuthCallbackResult } from '../tone3000-client';
 import type { User, Tone, PaginatedResponse } from '../types';
+import { t3kClient } from '../App';
 import { ErrorBanner } from '../components/ErrorBanner';
 import { Spinner } from '../components/Spinner';
 
@@ -133,13 +134,16 @@ export function LanFlowApp() {
       // T3KClient's refresh path, even though it's unlikely to fire here).
       // Errors don't fail the flow — tokens are valid, and partners often
       // have empty created/favorited lists which is a fine signal too.
-      const client = new T3KClient(PUBLISHABLE_KEY, () => {});
-      client.setTokens(result.tokens);
+      // Reuses the shared t3kClient from App.tsx so tokens flow through the
+      // same sessionStorage slot the other demos use; otherwise a separate
+      // T3KClient instance would write to the same `t3k_tokens` key and
+      // step on whatever the user had loaded from another flow.
+      t3kClient.setTokens(result.tokens);
       const api: ApiSmokeResults = { errors: [] };
       const settle = await Promise.allSettled([
-        client.getUser(),
-        client.listCreatedTones(1, 5),
-        client.listFavoritedTones(1, 5),
+        t3kClient.getUser(),
+        t3kClient.listCreatedTones(1, 5),
+        t3kClient.listFavoritedTones(1, 5),
       ]);
       if (settle[0].status === 'fulfilled') api.user = settle[0].value;
       else api.errors.push(`GET /user — ${String(settle[0].reason)}`);

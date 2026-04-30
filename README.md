@@ -45,6 +45,27 @@ It's the reference implementation for a full API integration.
 
 ---
 
+### 📡 Devo Inc — LAN-relay Flow
+*Best for: Headless devices, kiosks, embedded hardware with no system browser.*
+
+Devo Inc ships embedded guitar processors with a touchscreen but no system
+browser and no keyboard. To connect a TONE3000 account, the device opens an
+HTTP listener on its LAN IP, shows a QR pointing at TONE3000's authorize
+endpoint with the LAN URI as `redirect_uri`, and waits. The user scans on
+their phone, signs in, and TONE3000 forwards the issued code back to the
+device's listener via an internal HTTPS bridge. PKCE keeps the code
+unredeemable by anyone but the device.
+
+**Flow:** `GET /api/v1/oauth/authorize?redirect_uri=http://192.168.x.x:port/cb` → user signs in on phone → `/oauth/lan-bridge` 307 → device's LAN listener receives code → `POST /oauth/token` with `redirect_uri` unchanged
+
+**Cross-device requirement:** the phone must be on the same Wi-Fi as the
+laptop/device. The demo's "device" is the laptop's Vite dev server itself —
+see [`vite-plugin-lan-bridge.ts`](./vite-plugin-lan-bridge.ts) for how the
+LAN listener is implemented in dev. In production, your firmware does this
+on the embedded hardware.
+
+---
+
 ## Quick Start
 
 ### 1. Get an API Key

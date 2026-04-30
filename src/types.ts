@@ -1,6 +1,6 @@
 // types.ts — TONE3000 API type definitions
 
-export type Demo = 'select' | 'load-tone' | 'load-model' | 'full-api';
+export type Demo = 'select' | 'load-tone' | 'load-model' | 'full-api' | 'lan-flow';
 
 export enum Gear {
   Amp = 'amp',

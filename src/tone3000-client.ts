@@ -88,13 +88,14 @@ function buildAuthorizeUrl(
 export async function startSelectFlow(
   publishableKey: string,
   redirectUri: string,
-  options?: { gears?: string; platform?: string; menubar?: boolean }
+  options?: { gears?: string; platform?: string; menubar?: boolean, loginHint?: string }
 ): Promise<void> {
   const pkce = await buildPkceParams();
   const extra: Record<string, string> = { prompt: 'select_tone' };
   if (options?.gears) extra.gears = options.gears;
   if (options?.platform) extra.platform = options.platform;
   if (options?.menubar) extra.menubar = 'true';
+  if (options?.loginHint) extra.login_hint = options.loginHint;
   window.location.href = buildAuthorizeUrl(publishableKey, redirectUri, extra, pkce);
 }
 
@@ -108,7 +109,7 @@ export async function startSelectFlow(
 export async function startSelectFlowPopup(
   publishableKey: string,
   redirectUri: string,
-  options?: { gears?: string; platform?: string; menubar?: boolean }
+  options?: { gears?: string; platform?: string; menubar?: boolean, loginHint?: string }
 ): Promise<Window | null> {
   // Set before window.open so the popup inherits this flag via sessionStorage copy;
   // remove it from the parent immediately so only the popup retains it.
@@ -118,6 +119,7 @@ export async function startSelectFlowPopup(
   if (options?.gears) extra.gears = options.gears;
   if (options?.platform) extra.platform = options.platform;
   if (options?.menubar) extra.menubar = 'true';
+  if (options?.loginHint) extra.login_hint = options.loginHint;
   const url = buildAuthorizeUrl(publishableKey, redirectUri, extra, pkce);
 
   const width = 480;
@@ -206,13 +208,14 @@ export async function startLoadToneFlow(
   publishableKey: string,
   redirectUri: string,
   toneId: number | string,
-  options?: { gears?: string; platform?: string; menubar?: boolean }
+  options?: { gears?: string; platform?: string; menubar?: boolean, loginHint?: string }
 ): Promise<void> {
   const pkce = await buildPkceParams();
   const extra: Record<string, string> = { prompt: 'load_tone', tone_id: String(toneId) };
   if (options?.gears) extra.gears = options.gears;
   if (options?.platform) extra.platform = options.platform;
   if (options?.menubar) extra.menubar = 'true';
+  if (options?.loginHint) extra.login_hint = options.loginHint;
   window.location.href = buildAuthorizeUrl(publishableKey, redirectUri, extra, pkce);
 }
 
@@ -228,7 +231,7 @@ export async function startLoadToneFlowPopup(
   publishableKey: string,
   redirectUri: string,
   toneId: number | string,
-  options?: { gears?: string; platform?: string; menubar?: boolean }
+  options?: { gears?: string; platform?: string; menubar?: boolean, loginHint?: string }
 ): Promise<Window | null> {
   // Set before window.open so the popup inherits this flag via sessionStorage copy;
   // remove it from the parent immediately so only the popup retains it.
@@ -238,6 +241,7 @@ export async function startLoadToneFlowPopup(
   if (options?.gears) extra.gears = options.gears;
   if (options?.platform) extra.platform = options.platform;
   if (options?.menubar) extra.menubar = 'true';
+  if (options?.loginHint) extra.login_hint = options.loginHint;
   const url = buildAuthorizeUrl(publishableKey, redirectUri, extra, pkce);
   const width = 480;
   const height = 700;
@@ -256,7 +260,7 @@ export async function startLoadToneFlowPopupByModelId(
   publishableKey: string,
   redirectUri: string,
   modelId: number | string,
-  options?: { gears?: string; platform?: string; menubar?: boolean }
+  options?: { gears?: string; platform?: string; menubar?: boolean, loginHint?: string }
 ): Promise<Window | null> {
   sessionStorage.setItem('t3k_popup_mode', '1');
   const pkce = await buildPkceParams();
@@ -264,6 +268,7 @@ export async function startLoadToneFlowPopupByModelId(
   if (options?.gears) extra.gears = options.gears;
   if (options?.platform) extra.platform = options.platform;
   if (options?.menubar) extra.menubar = 'true';
+  if (options?.loginHint) extra.login_hint = options.loginHint;
   const url = buildAuthorizeUrl(publishableKey, redirectUri, extra, pkce);
   const width = 480;
   const height = 700;
@@ -304,10 +309,13 @@ export async function startLoadModelFlow(
  */
 export async function startStandardFlow(
   publishableKey: string,
-  redirectUri: string
+  redirectUri: string,
+  options?: { loginHint?: string }
 ): Promise<void> {
   const pkce = await buildPkceParams();
-  window.location.href = buildAuthorizeUrl(publishableKey, redirectUri, {}, pkce);
+  const extra: Record<string, string> = {};
+  if (options?.loginHint) extra.login_hint = options.loginHint;
+  window.location.href = buildAuthorizeUrl(publishableKey, redirectUri, extra, pkce);
 }
 
 /**

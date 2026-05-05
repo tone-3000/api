@@ -138,6 +138,23 @@ export interface SearchTonesParams {
   sort?: TonesSort;
   gears?: Gear[];
   sizes?: Size[];
+  architecture?: number;
+}
+
+export interface ListModelsParams {
+  page?: number;
+  pageSize?: number;
+  architecture?: number;
+}
+
+export interface ListCreatedTonesParams {
+  page?: number;
+  pageSize?: number;
+}
+
+export interface ListFavoritedTonesParams {
+  page?: number;
+  pageSize?: number;
 }
 
 export interface ListUsersParams {

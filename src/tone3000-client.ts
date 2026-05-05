@@ -14,7 +14,8 @@
 import { T3K_API } from './config';
 import type {
   User, Tone, Model, PublicUser,
-  PaginatedResponse, SearchTonesParams, ListUsersParams,
+  PaginatedResponse, SearchTonesParams, ListModelsParams,
+  ListCreatedTonesParams, ListFavoritedTonesParams, ListUsersParams,
 } from './types';
 
 // ─── Public types ─────────────────────────────────────────────────────────────
@@ -551,33 +552,39 @@ export class T3KClient {
     if (params?.sort) qs.set('sort', params.sort);
     if (params?.gears?.length) qs.set('gears', params.gears.join('_'));
     if (params?.sizes?.length) qs.set('sizes', params.sizes.join('_'));
+    if (params?.architecture != null) qs.set('architecture', String(params.architecture));
     const res = await this.fetch(`/api/v1/tones/search?${qs}`);
     if (!res.ok) throw new Error(`searchTones failed: ${res.status}`);
     return res.json();
   }
 
   /** Get tones created by the authenticated user. */
-  async listCreatedTones(page = 1, pageSize = 10): Promise<PaginatedResponse<Tone>> {
-    const res = await this.fetch(`/api/v1/tones/created?page=${page}&page_size=${pageSize}`);
+  async listCreatedTones(params?: ListCreatedTonesParams): Promise<PaginatedResponse<Tone>> {
+    const qs = new URLSearchParams();
+    if (params?.page) qs.set('page', String(params.page));
+    if (params?.pageSize) qs.set('page_size', String(params.pageSize));
+    const res = await this.fetch(`/api/v1/tones/created?${qs}`);
     if (!res.ok) throw new Error(`listCreatedTones failed: ${res.status}`);
     return res.json();
   }
 
   /** Get tones favorited by the authenticated user. */
-  async listFavoritedTones(page = 1, pageSize = 10): Promise<PaginatedResponse<Tone>> {
-    const res = await this.fetch(`/api/v1/tones/favorited?page=${page}&page_size=${pageSize}`);
+  async listFavoritedTones(params?: ListFavoritedTonesParams): Promise<PaginatedResponse<Tone>> {
+    const qs = new URLSearchParams();
+    if (params?.page) qs.set('page', String(params.page));
+    if (params?.pageSize) qs.set('page_size', String(params.pageSize));
+    const res = await this.fetch(`/api/v1/tones/favorited?${qs}`);
     if (!res.ok) throw new Error(`listFavoritedTones failed: ${res.status}`);
     return res.json();
   }
 
-  /** List models for a tone (filtered with `architecture=2` to match typical plugin targets). */
-  async listModels(toneId: number | string, page = 1, pageSize = 10): Promise<PaginatedResponse<Model>> {
-    const qs = new URLSearchParams({
-      tone_id: String(toneId),
-      page: String(page),
-      page_size: String(pageSize),
-      architecture: '2',
-    });
+  /** List models for a tone. */
+  async listModels(toneId: number | string, params?: ListModelsParams): Promise<PaginatedResponse<Model>> {
+    const qs = new URLSearchParams();
+    qs.set('tone_id', String(toneId));
+    if (params?.page) qs.set('page', String(params.page));
+    if (params?.pageSize) qs.set('page_size', String(params.pageSize));
+    if (params?.architecture != null) qs.set('architecture', String(params.architecture));
     const res = await this.fetch(`/api/v1/models?${qs}`);
     if (!res.ok) throw new Error(`listModels failed: ${res.status}`);
     return res.json();

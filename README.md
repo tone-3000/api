@@ -137,10 +137,10 @@ client.setTokens(result.tokens);
 const tone = await client.getTone(42);
 
 // Fetch models for a tone (each has a model_url for downloading)
-const { data: models } = await client.listModels(42);
+const { data: models } = await client.listModels(42, { architecture: 2 });
 
 // Search tones with filters
-const results = await client.searchTones({ query: 'fender', gears: [Gear.Amp], sort: TonesSort.Trending });
+const results = await client.searchTones({ query: 'fender', gears: [Gear.Amp], sort: TonesSort.Trending, architecture: 2 });
 
 // Download a model file (requires Bearer auth — use this method, not fetch())
 await client.downloadModel(model.model_url, model.name);

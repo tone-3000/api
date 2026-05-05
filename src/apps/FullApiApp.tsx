@@ -77,7 +77,7 @@ export function FullApiApp() {
     if (section === 'my-tones') {
       setTonesLoading(true);
       try {
-        const res = await t3kClient.listCreatedTones(tonesPage);
+        const res = await t3kClient.listCreatedTones({ page: tonesPage });
         setTones(res.data);
         setTonesTotalPages(res.total_pages);
       } catch {
@@ -91,7 +91,7 @@ export function FullApiApp() {
     if (section === 'favorites') {
       setTonesLoading(true);
       try {
-        const res = await t3kClient.listFavoritedTones(tonesPage);
+        const res = await t3kClient.listFavoritedTones({ page: tonesPage });
         setTones(res.data);
         setTonesTotalPages(res.total_pages);
       } catch {
@@ -111,6 +111,7 @@ export function FullApiApp() {
           sort,
           page: tonesPage,
           pageSize: 12,
+          architecture: 2,
         });
         setTones(res.data);
         setTonesTotalPages(res.total_pages);
@@ -146,7 +147,7 @@ export function FullApiApp() {
     try {
       const [full, modelsRes] = await Promise.all([
         t3kClient.getTone(tone.id),
-        t3kClient.listModels(tone.id),
+        t3kClient.listModels(tone.id, { architecture: 2 }),
       ]);
       setSelectedTone({ ...full, models: modelsRes.data });
     } catch {

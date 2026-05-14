@@ -18,5 +18,6 @@ export const PUBLISHABLE_KEY_SELECT = PUBLISHABLE_KEY;
 export const PUBLISHABLE_KEY_LOAD = PUBLISHABLE_KEY;
 export const PUBLISHABLE_KEY_FULL = PUBLISHABLE_KEY;
 
-export const REDIRECT_URI =
-  (import.meta.env.VITE_REDIRECT_URI as string | undefined) ?? 'http://localhost:3001';
+// Hardcoded to the QA preview deployment so the registered redirect URI on the
+// hardcoded publishable key always matches what the app sends.
+export const REDIRECT_URI = 'https://t3k-api-demo-git-am-a2-qa-woodyburys-projects.vercel.app';

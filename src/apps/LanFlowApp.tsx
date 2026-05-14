@@ -142,8 +142,8 @@ export function LanFlowApp() {
       const api: ApiSmokeResults = { errors: [] };
       const settle = await Promise.allSettled([
         t3kClient.getUser(),
-        t3kClient.listCreatedTones(1, 5),
-        t3kClient.listFavoritedTones(1, 5),
+        t3kClient.listCreatedTones({ page: 1, pageSize: 5 }),
+        t3kClient.listFavoritedTones({ page: 1, pageSize: 5 }),
       ]);
       if (settle[0].status === 'fulfilled') api.user = settle[0].value;
       else api.errors.push(`GET /user — ${String(settle[0].reason)}`);

@@ -10,6 +10,8 @@ import { ToneCard } from '../components/ToneCard';
 import { ModelList } from '../components/ModelList';
 import { Spinner } from '../components/Spinner';
 import { ErrorBanner } from '../components/ErrorBanner';
+import { FiltersBar } from '../components/FiltersBar';
+import { getFilterPrefs, flowOptionsFromPrefs } from '../filterPrefs';
 import type { Tone, Model } from '../types';
 import t3kLogo from '../assets/t3k.svg';
 
@@ -54,9 +56,10 @@ export function LoadToneApp() {
       sessionStorage.removeItem('t3k_resolved_tone_id');
       setLoading(true);
       setRequestedToneId(Number(resolvedToneId));
+      const prefs = getFilterPrefs();
       Promise.all([
         t3kClient.getTone(resolvedToneId),
-        t3kClient.listModels(resolvedToneId),
+        t3kClient.listModels(resolvedToneId, { architecture: prefs.architecture }),
       ])
         .then(([tone, modelsRes]) => setLoadedTone({ ...tone, models: modelsRes.data }))
         .catch(() => setError('Failed to load tone. Please try again.'))
@@ -84,9 +87,10 @@ export function LoadToneApp() {
       }
       if (result.toneId) {
         setLoading(true);
+        const prefs = getFilterPrefs();
         Promise.all([
           t3kClient.getTone(result.toneId),
-          t3kClient.listModels(result.toneId),
+          t3kClient.listModels(result.toneId, { architecture: prefs.architecture }),
         ])
           .then(([tone, modelsRes]) => {
             sessionStorage.setItem('t3k_resolved_tone_id', String(tone.id));
@@ -115,7 +119,13 @@ export function LoadToneApp() {
 
     const openPopup = () => {
       setLoadedTone(null);
-      const options = { ...(preset.gears ? { gears: preset.gears } : {}), menubar: true };
+      // FiltersBar prefs override the preset's hardcoded gear when set.
+      const prefs = getFilterPrefs();
+      const options = {
+        ...(preset.gears ? { gears: preset.gears } : {}),
+        menubar: true,
+        ...flowOptionsFromPrefs(prefs),
+      };
       return startLoadToneFlowPopup(PUBLISHABLE_KEY_LOAD, REDIRECT_URI, preset.toneId, options)
         .then((popup) => { popupRef.current = popup; });
     };
@@ -123,9 +133,10 @@ export function LoadToneApp() {
     const tokens = t3kClient.getTokens();
     if (tokens && Date.now() < tokens.expires_at) {
       setLoading(true);
+      const prefs = getFilterPrefs();
       Promise.all([
         t3kClient.getTone(preset.toneId),
-        t3kClient.listModels(preset.toneId),
+        t3kClient.listModels(preset.toneId, { architecture: prefs.architecture }),
       ])
         .then(([tone, modelsRes]) => {
           sessionStorage.setItem('t3k_resolved_tone_id', String(tone.id));
@@ -159,6 +170,7 @@ export function LoadToneApp() {
           </div>
           <span className="app-tagline">Preset Management</span>
         </div>
+        <FiltersBar />
       </header>
 
       <main className="app-main">

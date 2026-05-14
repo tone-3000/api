@@ -7,6 +7,8 @@ import { ToneCard } from '../components/ToneCard';
 import { ModelList } from '../components/ModelList';
 import { Spinner } from '../components/Spinner';
 import { ErrorBanner } from '../components/ErrorBanner';
+import { FiltersBar } from '../components/FiltersBar';
+import { getFilterPrefs, flowOptionsFromPrefs } from '../filterPrefs';
 import type { Tone, Model } from '../types';
 import t3kLogo from '../assets/t3k.svg';
 
@@ -49,9 +51,10 @@ export function SelectApp() {
         return;
       }
       if (result.toneId) {
+        const prefs = getFilterPrefs();
         Promise.all([
           t3kClient.getTone(result.toneId),
-          t3kClient.listModels(result.toneId),
+          t3kClient.listModels(result.toneId, { architecture: prefs.architecture }),
         ])
           .then(([t, modelsRes]) => setTone({ ...t, models: modelsRes.data }))
           .catch(() => setError('Failed to load tone. Please try again.'))
@@ -85,7 +88,8 @@ export function SelectApp() {
   const handleBrowse = () => {
     setCanceled(false);
     setBrowsing(true);
-    startSelectFlowPopup(PUBLISHABLE_KEY_SELECT, REDIRECT_URI, { gears: 'full-rig', menubar: true })
+    const options = { gears: 'full-rig', menubar: true, ...flowOptionsFromPrefs(getFilterPrefs()) };
+    startSelectFlowPopup(PUBLISHABLE_KEY_SELECT, REDIRECT_URI, options)
       .then((popup) => { popupRef.current = popup; });
   };
 
@@ -99,6 +103,7 @@ export function SelectApp() {
           </div>
           <span className="app-tagline">Guitar Amp Simulation</span>
         </div>
+        <FiltersBar />
       </header>
 
       <main className="app-main">

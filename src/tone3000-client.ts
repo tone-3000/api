@@ -14,7 +14,8 @@
 import { T3K_API } from './config';
 import type {
   User, Tone, Model, PublicUser,
-  PaginatedResponse, SearchTonesParams, ListUsersParams,
+  PaginatedResponse, SearchTonesParams, ListModelsParams,
+  ListCreatedTonesParams, ListFavoritedTonesParams, ListUsersParams,
 } from './types';
 
 // ─── Public types ─────────────────────────────────────────────────────────────
@@ -88,13 +89,14 @@ function buildAuthorizeUrl(
 export async function startSelectFlow(
   publishableKey: string,
   redirectUri: string,
-  options?: { gears?: string; platform?: string; menubar?: boolean, loginHint?: string }
+  options?: { gears?: string; platform?: string; menubar?: boolean; architecture?: number; loginHint?: string }
 ): Promise<void> {
   const pkce = await buildPkceParams();
   const extra: Record<string, string> = { prompt: 'select_tone' };
   if (options?.gears) extra.gears = options.gears;
   if (options?.platform) extra.platform = options.platform;
   if (options?.menubar) extra.menubar = 'true';
+  if (options?.architecture != null) extra.architecture = String(options.architecture);
   if (options?.loginHint) extra.login_hint = options.loginHint;
   window.location.href = buildAuthorizeUrl(publishableKey, redirectUri, extra, pkce);
 }
@@ -109,7 +111,7 @@ export async function startSelectFlow(
 export async function startSelectFlowPopup(
   publishableKey: string,
   redirectUri: string,
-  options?: { gears?: string; platform?: string; menubar?: boolean, loginHint?: string }
+  options?: { gears?: string; platform?: string; menubar?: boolean; architecture?: number; loginHint?: string }
 ): Promise<Window | null> {
   // Set before window.open so the popup inherits this flag via sessionStorage copy;
   // remove it from the parent immediately so only the popup retains it.
@@ -119,6 +121,7 @@ export async function startSelectFlowPopup(
   if (options?.gears) extra.gears = options.gears;
   if (options?.platform) extra.platform = options.platform;
   if (options?.menubar) extra.menubar = 'true';
+  if (options?.architecture != null) extra.architecture = String(options.architecture);
   if (options?.loginHint) extra.login_hint = options.loginHint;
   const url = buildAuthorizeUrl(publishableKey, redirectUri, extra, pkce);
 
@@ -208,13 +211,14 @@ export async function startLoadToneFlow(
   publishableKey: string,
   redirectUri: string,
   toneId: number | string,
-  options?: { gears?: string; platform?: string; menubar?: boolean, loginHint?: string }
+  options?: { gears?: string; platform?: string; menubar?: boolean; architecture?: number; loginHint?: string }
 ): Promise<void> {
   const pkce = await buildPkceParams();
   const extra: Record<string, string> = { prompt: 'load_tone', tone_id: String(toneId) };
   if (options?.gears) extra.gears = options.gears;
   if (options?.platform) extra.platform = options.platform;
   if (options?.menubar) extra.menubar = 'true';
+  if (options?.architecture != null) extra.architecture = String(options.architecture);
   if (options?.loginHint) extra.login_hint = options.loginHint;
   window.location.href = buildAuthorizeUrl(publishableKey, redirectUri, extra, pkce);
 }
@@ -231,7 +235,7 @@ export async function startLoadToneFlowPopup(
   publishableKey: string,
   redirectUri: string,
   toneId: number | string,
-  options?: { gears?: string; platform?: string; menubar?: boolean, loginHint?: string }
+  options?: { gears?: string; platform?: string; menubar?: boolean; architecture?: number; loginHint?: string }
 ): Promise<Window | null> {
   // Set before window.open so the popup inherits this flag via sessionStorage copy;
   // remove it from the parent immediately so only the popup retains it.
@@ -241,6 +245,7 @@ export async function startLoadToneFlowPopup(
   if (options?.gears) extra.gears = options.gears;
   if (options?.platform) extra.platform = options.platform;
   if (options?.menubar) extra.menubar = 'true';
+  if (options?.architecture != null) extra.architecture = String(options.architecture);
   if (options?.loginHint) extra.login_hint = options.loginHint;
   const url = buildAuthorizeUrl(publishableKey, redirectUri, extra, pkce);
   const width = 480;
@@ -260,7 +265,7 @@ export async function startLoadToneFlowPopupByModelId(
   publishableKey: string,
   redirectUri: string,
   modelId: number | string,
-  options?: { gears?: string; platform?: string; menubar?: boolean, loginHint?: string }
+  options?: { gears?: string; platform?: string; menubar?: boolean; architecture?: number; loginHint?: string }
 ): Promise<Window | null> {
   sessionStorage.setItem('t3k_popup_mode', '1');
   const pkce = await buildPkceParams();
@@ -268,6 +273,7 @@ export async function startLoadToneFlowPopupByModelId(
   if (options?.gears) extra.gears = options.gears;
   if (options?.platform) extra.platform = options.platform;
   if (options?.menubar) extra.menubar = 'true';
+  if (options?.architecture != null) extra.architecture = String(options.architecture);
   if (options?.loginHint) extra.login_hint = options.loginHint;
   const url = buildAuthorizeUrl(publishableKey, redirectUri, extra, pkce);
   const width = 480;
@@ -627,28 +633,40 @@ export class T3KClient {
     if (params?.sort) qs.set('sort', params.sort);
     if (params?.gears?.length) qs.set('gears', params.gears.join('_'));
     if (params?.sizes?.length) qs.set('sizes', params.sizes.join('_'));
+    if (params?.architecture != null) qs.set('architecture', String(params.architecture));
     const res = await this.fetch(`/api/v1/tones/search?${qs}`);
     if (!res.ok) throw new Error(`searchTones failed: ${res.status}`);
     return res.json();
   }
 
   /** Get tones created by the authenticated user. */
-  async listCreatedTones(page = 1, pageSize = 10): Promise<PaginatedResponse<Tone>> {
-    const res = await this.fetch(`/api/v1/tones/created?page=${page}&page_size=${pageSize}`);
+  async listCreatedTones(params?: ListCreatedTonesParams): Promise<PaginatedResponse<Tone>> {
+    const qs = new URLSearchParams();
+    if (params?.page) qs.set('page', String(params.page));
+    if (params?.pageSize) qs.set('page_size', String(params.pageSize));
+    const res = await this.fetch(`/api/v1/tones/created?${qs}`);
     if (!res.ok) throw new Error(`listCreatedTones failed: ${res.status}`);
     return res.json();
   }
 
   /** Get tones favorited by the authenticated user. */
-  async listFavoritedTones(page = 1, pageSize = 10): Promise<PaginatedResponse<Tone>> {
-    const res = await this.fetch(`/api/v1/tones/favorited?page=${page}&page_size=${pageSize}`);
+  async listFavoritedTones(params?: ListFavoritedTonesParams): Promise<PaginatedResponse<Tone>> {
+    const qs = new URLSearchParams();
+    if (params?.page) qs.set('page', String(params.page));
+    if (params?.pageSize) qs.set('page_size', String(params.pageSize));
+    const res = await this.fetch(`/api/v1/tones/favorited?${qs}`);
     if (!res.ok) throw new Error(`listFavoritedTones failed: ${res.status}`);
     return res.json();
   }
 
   /** List models for a tone. */
-  async listModels(toneId: number | string, page = 1, pageSize = 10): Promise<PaginatedResponse<Model>> {
-    const res = await this.fetch(`/api/v1/models?tone_id=${toneId}&page=${page}&page_size=${pageSize}`);
+  async listModels(toneId: number | string, params?: ListModelsParams): Promise<PaginatedResponse<Model>> {
+    const qs = new URLSearchParams();
+    qs.set('tone_id', String(toneId));
+    if (params?.page) qs.set('page', String(params.page));
+    if (params?.pageSize) qs.set('page_size', String(params.pageSize));
+    if (params?.architecture != null) qs.set('architecture', String(params.architecture));
+    const res = await this.fetch(`/api/v1/models?${qs}`);
     if (!res.ok) throw new Error(`listModels failed: ${res.status}`);
     return res.json();
   }

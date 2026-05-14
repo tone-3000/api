@@ -77,7 +77,7 @@ export function FullApiApp() {
     if (section === 'my-tones') {
       setTonesLoading(true);
       try {
-        const res = await t3kClient.listCreatedTones(tonesPage);
+        const res = await t3kClient.listCreatedTones({ page: tonesPage });
         setTones(res.data);
         setTonesTotalPages(res.total_pages);
       } catch {
@@ -91,7 +91,7 @@ export function FullApiApp() {
     if (section === 'favorites') {
       setTonesLoading(true);
       try {
-        const res = await t3kClient.listFavoritedTones(tonesPage);
+        const res = await t3kClient.listFavoritedTones({ page: tonesPage });
         setTones(res.data);
         setTonesTotalPages(res.total_pages);
       } catch {

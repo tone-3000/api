@@ -237,4 +237,6 @@ button.tone-card:hover { border-color: var(--accent); box-shadow: 0 2px 8px rgba
 
 /* ─── Header actions ─────────────────────────────────────────────────────────── */
 .header-actions { display: flex; align-items: center; gap: 12px; }
+.filters-bar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.filters-bar-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-3); font-weight: 600; }
 .browse-section { display: flex; flex-direction: column; }

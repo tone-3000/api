@@ -1,0 +1,79 @@
+// filterPrefs.ts — QA-only shared filter state.
+//
+// Drives the architecture / platform / gear selectors exposed by FiltersBar on
+// this preview branch. Each demo reads the prefs and forwards them into OAuth
+// authorize-URL params (so the in-popup browse view honors the same filters)
+// and into authenticated API list/search calls. Persisted in sessionStorage so
+// the value survives the OAuth round-trip but resets when the tab closes.
+
+import { useCallback, useEffect, useState } from 'react';
+import { Gear, Platform } from './types';
+
+const STORAGE_KEY = 't3k_filter_prefs';
+const CHANGE_EVENT = 't3k_filter_prefs_change';
+
+export interface FilterPrefs {
+  /** undefined = no architecture filter applied */
+  architecture?: number;
+  /** undefined = no platform filter applied */
+  platform?: Platform;
+  /** undefined = no gear filter applied */
+  gear?: Gear;
+}
+
+// Default to architecture 2 — that's what this preview branch is here to test.
+const DEFAULT_PREFS: FilterPrefs = { architecture: 2 };
+
+function read(): FilterPrefs {
+  try {
+    const raw = sessionStorage.getItem(STORAGE_KEY);
+    if (!raw) return DEFAULT_PREFS;
+    return { ...DEFAULT_PREFS, ...(JSON.parse(raw) as FilterPrefs) };
+  } catch {
+    return DEFAULT_PREFS;
+  }
+}
+
+function write(prefs: FilterPrefs): void {
+  sessionStorage.setItem(STORAGE_KEY, JSON.stringify(prefs));
+  window.dispatchEvent(new CustomEvent(CHANGE_EVENT));
+}
+
+export function getFilterPrefs(): FilterPrefs {
+  return read();
+}
+
+/** React hook — re-renders subscribers when any FiltersBar instance updates prefs. */
+export function useFilterPrefs(): [FilterPrefs, (next: FilterPrefs) => void] {
+  const [prefs, setPrefs] = useState<FilterPrefs>(() => read());
+
+  useEffect(() => {
+    const onChange = () => setPrefs(read());
+    window.addEventListener(CHANGE_EVENT, onChange);
+    return () => window.removeEventListener(CHANGE_EVENT, onChange);
+  }, []);
+
+  const update = useCallback((next: FilterPrefs) => {
+    write(next);
+    setPrefs(next);
+  }, []);
+
+  return [prefs, update];
+}
+
+/**
+ * Build the options bag accepted by the OAuth flow initiators.
+ * Spread the result into the `options` arg of `startSelectFlow*`,
+ * `startLoadToneFlow*`, etc.
+ */
+export function flowOptionsFromPrefs(prefs: FilterPrefs): {
+  gears?: string;
+  platform?: string;
+  architecture?: number;
+} {
+  const opts: { gears?: string; platform?: string; architecture?: number } = {};
+  if (prefs.gear) opts.gears = prefs.gear;
+  if (prefs.platform) opts.platform = prefs.platform;
+  if (prefs.architecture != null) opts.architecture = prefs.architecture;
+  return opts;
+}

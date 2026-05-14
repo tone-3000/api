@@ -13,7 +13,7 @@
 
 import { T3K_API } from './config';
 import type {
-  User, Tone, Model, PublicUser,
+  User, Tone, Model, PublicUser, Architecture,
   PaginatedResponse, SearchTonesParams, ListModelsParams,
   ListCreatedTonesParams, ListFavoritedTonesParams, ListUsersParams,
 } from './types';
@@ -89,7 +89,7 @@ function buildAuthorizeUrl(
 export async function startSelectFlow(
   publishableKey: string,
   redirectUri: string,
-  options?: { gears?: string; platform?: string; menubar?: boolean; architecture?: number; loginHint?: string }
+  options?: { gears?: string; platform?: string; menubar?: boolean; architecture?: Architecture; loginHint?: string }
 ): Promise<void> {
   const pkce = await buildPkceParams();
   const extra: Record<string, string> = { prompt: 'select_tone' };
@@ -111,7 +111,7 @@ export async function startSelectFlow(
 export async function startSelectFlowPopup(
   publishableKey: string,
   redirectUri: string,
-  options?: { gears?: string; platform?: string; menubar?: boolean; architecture?: number; loginHint?: string }
+  options?: { gears?: string; platform?: string; menubar?: boolean; architecture?: Architecture; loginHint?: string }
 ): Promise<Window | null> {
   // Set before window.open so the popup inherits this flag via sessionStorage copy;
   // remove it from the parent immediately so only the popup retains it.
@@ -211,7 +211,7 @@ export async function startLoadToneFlow(
   publishableKey: string,
   redirectUri: string,
   toneId: number | string,
-  options?: { gears?: string; platform?: string; menubar?: boolean; architecture?: number; loginHint?: string }
+  options?: { gears?: string; platform?: string; menubar?: boolean; architecture?: Architecture; loginHint?: string }
 ): Promise<void> {
   const pkce = await buildPkceParams();
   const extra: Record<string, string> = { prompt: 'load_tone', tone_id: String(toneId) };
@@ -235,7 +235,7 @@ export async function startLoadToneFlowPopup(
   publishableKey: string,
   redirectUri: string,
   toneId: number | string,
-  options?: { gears?: string; platform?: string; menubar?: boolean; architecture?: number; loginHint?: string }
+  options?: { gears?: string; platform?: string; menubar?: boolean; architecture?: Architecture; loginHint?: string }
 ): Promise<Window | null> {
   // Set before window.open so the popup inherits this flag via sessionStorage copy;
   // remove it from the parent immediately so only the popup retains it.
@@ -265,7 +265,7 @@ export async function startLoadToneFlowPopupByModelId(
   publishableKey: string,
   redirectUri: string,
   modelId: number | string,
-  options?: { gears?: string; platform?: string; menubar?: boolean; architecture?: number; loginHint?: string }
+  options?: { gears?: string; platform?: string; menubar?: boolean; architecture?: Architecture; loginHint?: string }
 ): Promise<Window | null> {
   sessionStorage.setItem('t3k_popup_mode', '1');
   const pkce = await buildPkceParams();

@@ -3,13 +3,21 @@
 // effect on the next OAuth launch or API call.
 
 import { Gear, Platform } from '../types';
-import { useFilterPrefs } from '../filterPrefs';
+import { useFilterPrefs, type ArchitectureFilter } from '../filterPrefs';
 
-const ARCHITECTURES: { label: string; value: number | undefined }[] = [
+const ARCHITECTURES: { label: string; value: ArchitectureFilter | undefined }[] = [
   { label: 'Any', value: undefined },
-  { label: 'NAM v1', value: 1 },
-  { label: 'NAM v2', value: 2 },
+  { label: 'NAM a1', value: 1 },
+  { label: 'NAM a2', value: 2 },
+  { label: 'Custom', value: 'custom' },
 ];
+
+function parseArchitecture(raw: string): ArchitectureFilter | undefined {
+  if (raw === '') return undefined;
+  if (raw === 'custom') return 'custom';
+  // The only remaining options are the numeric ones in ARCHITECTURES.
+  return Number(raw) as 1 | 2;
+}
 
 const PLATFORMS: { label: string; value: Platform | undefined }[] = [
   { label: 'Any platform', value: undefined },
@@ -39,10 +47,7 @@ export function FiltersBar() {
         className="select-filter"
         value={prefs.architecture ?? ''}
         onChange={(e) =>
-          setPrefs({
-            ...prefs,
-            architecture: e.target.value === '' ? undefined : Number(e.target.value),
-          })
+          setPrefs({ ...prefs, architecture: parseArchitecture(e.target.value) })
         }
       >
         {ARCHITECTURES.map((a) => (

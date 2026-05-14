@@ -131,6 +131,10 @@ export interface PaginatedResponse<T> {
   total_pages: number;
 }
 
+/** TONE3000's architecture filter accepts numeric versions (1, 2, …) or the
+ * literal string `'custom'` for tones targeting non-standard architectures. */
+export type Architecture = 1 | 2 | 'custom';
+
 export interface SearchTonesParams {
   query?: string;
   page?: number;
@@ -138,13 +142,13 @@ export interface SearchTonesParams {
   sort?: TonesSort;
   gears?: Gear[];
   sizes?: Size[];
-  architecture?: number;
+  architecture?: Architecture;
 }
 
 export interface ListModelsParams {
   page?: number;
   pageSize?: number;
-  architecture?: number;
+  architecture?: Architecture;
 }
 
 export interface ListCreatedTonesParams {

@@ -12,9 +12,14 @@ import { Gear, Platform } from './types';
 const STORAGE_KEY = 't3k_filter_prefs';
 const CHANGE_EVENT = 't3k_filter_prefs_change';
 
+/** TONE3000 accepts `1`, `2`, or the literal string `'custom'` for the
+ * architecture filter. `'custom'` matches tones authored against unofficial /
+ * non-standard NAM architectures. */
+export type ArchitectureFilter = 1 | 2 | 'custom';
+
 export interface FilterPrefs {
   /** undefined = no architecture filter applied */
-  architecture?: number;
+  architecture?: ArchitectureFilter;
   /** undefined = no platform filter applied */
   platform?: Platform;
   /** undefined = no gear filter applied */
@@ -25,10 +30,14 @@ export interface FilterPrefs {
 const DEFAULT_PREFS: FilterPrefs = { architecture: 2 };
 
 function read(): FilterPrefs {
+  // Important: don't spread DEFAULT_PREFS over the parsed value. JSON.stringify
+  // drops `undefined`, so "Any" (architecture: undefined) round-trips as a
+  // missing key — a default-merge would silently reinstate architecture: 2 and
+  // the user's "Any" choice would never reach the API.
   try {
     const raw = sessionStorage.getItem(STORAGE_KEY);
     if (!raw) return DEFAULT_PREFS;
-    return { ...DEFAULT_PREFS, ...(JSON.parse(raw) as FilterPrefs) };
+    return JSON.parse(raw) as FilterPrefs;
   } catch {
     return DEFAULT_PREFS;
   }
@@ -69,9 +78,9 @@ export function useFilterPrefs(): [FilterPrefs, (next: FilterPrefs) => void] {
 export function flowOptionsFromPrefs(prefs: FilterPrefs): {
   gears?: string;
   platform?: string;
-  architecture?: number;
+  architecture?: ArchitectureFilter;
 } {
-  const opts: { gears?: string; platform?: string; architecture?: number } = {};
+  const opts: { gears?: string; platform?: string; architecture?: ArchitectureFilter } = {};
   if (prefs.gear) opts.gears = prefs.gear;
   if (prefs.platform) opts.platform = prefs.platform;
   if (prefs.architecture != null) opts.architecture = prefs.architecture;

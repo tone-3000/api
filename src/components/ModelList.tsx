@@ -1,6 +1,6 @@
 // src/components/ModelList.tsx
 import { useCallback, useEffect, useRef } from 'react';
-import type { Model } from '../types';
+import type { Model, ArchitectureVersion } from '../types';
 import { t3kClient } from '../App';
 import {
   T3kSlimPlayer,
@@ -15,9 +15,8 @@ interface Props {
   models: Model[];
 }
 
-const SIZE_LABELS: Record<string, string> = {
-  'standard': 'Standard', 'lite': 'Lite',
-  'feather': 'Feather', 'nano': 'Nano', 'custom': 'Custom',
+const ARCHITECTURE_LABELS: Record<ArchitectureVersion, string> = {
+  '1': 'A1', '2': 'A2', 'custom': 'Custom',
 };
 
 const getExtension = (url: string) => url.split('.').pop()?.toLowerCase();
@@ -81,7 +80,7 @@ function ModelRow({ model }: ModelRowProps) {
     <div className="model-row">
       <div className="model-row-info">
         <span className="model-row-name">{model.name}</span>
-        <span className="badge">{SIZE_LABELS[model.size] ?? model.size}</span>
+        <span className="badge">{ARCHITECTURE_LABELS[model.architecture_version] ?? model.architecture_version}</span>
       </div>
       <div className="model-row-actions">
         {canPlay ? (

@@ -51,7 +51,7 @@ export function SelectApp() {
       if (result.toneId) {
         Promise.all([
           t3kClient.getTone(result.toneId),
-          t3kClient.listModels(result.toneId),
+          t3kClient.listModels(result.toneId, { architecture: 2 }),
         ])
           .then(([t, modelsRes]) => setTone({ ...t, models: modelsRes.data }))
           .catch(() => setError('Failed to load tone. Please try again.'))
@@ -85,7 +85,7 @@ export function SelectApp() {
   const handleBrowse = () => {
     setCanceled(false);
     setBrowsing(true);
-    startSelectFlowPopup(PUBLISHABLE_KEY_SELECT, REDIRECT_URI, { gears: 'full-rig', menubar: true })
+    startSelectFlowPopup(PUBLISHABLE_KEY_SELECT, REDIRECT_URI, { gears: 'full-rig', menubar: true, architecture: 2 })
       .then((popup) => { popupRef.current = popup; });
   };
 

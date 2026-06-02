@@ -56,7 +56,7 @@ export function LoadToneApp() {
       setRequestedToneId(Number(resolvedToneId));
       Promise.all([
         t3kClient.getTone(resolvedToneId),
-        t3kClient.listModels(resolvedToneId),
+        t3kClient.listModels(resolvedToneId, { architecture: 2 }),
       ])
         .then(([tone, modelsRes]) => setLoadedTone({ ...tone, models: modelsRes.data }))
         .catch(() => setError('Failed to load tone. Please try again.'))
@@ -86,7 +86,7 @@ export function LoadToneApp() {
         setLoading(true);
         Promise.all([
           t3kClient.getTone(result.toneId),
-          t3kClient.listModels(result.toneId),
+          t3kClient.listModels(result.toneId, { architecture: 2 }),
         ])
           .then(([tone, modelsRes]) => {
             sessionStorage.setItem('t3k_resolved_tone_id', String(tone.id));
@@ -115,7 +115,11 @@ export function LoadToneApp() {
 
     const openPopup = () => {
       setLoadedTone(null);
-      const options = { ...(preset.gears ? { gears: preset.gears } : {}), menubar: true };
+      const options = {
+        ...(preset.gears ? { gears: preset.gears } : {}),
+        menubar: true,
+        architecture: 2,
+      };
       return startLoadToneFlowPopup(PUBLISHABLE_KEY_LOAD, REDIRECT_URI, preset.toneId, options)
         .then((popup) => { popupRef.current = popup; });
     };
@@ -125,7 +129,7 @@ export function LoadToneApp() {
       setLoading(true);
       Promise.all([
         t3kClient.getTone(preset.toneId),
-        t3kClient.listModels(preset.toneId),
+        t3kClient.listModels(preset.toneId, { architecture: 2 }),
       ])
         .then(([tone, modelsRes]) => {
           sessionStorage.setItem('t3k_resolved_tone_id', String(tone.id));

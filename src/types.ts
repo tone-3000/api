@@ -112,6 +112,9 @@ export interface Tone {
   url: string;
 }
 
+/** Neural model architecture version. 'custom' covers user-supplied architectures. */
+export type ArchitectureVersion = '1' | '2' | 'custom';
+
 export interface Model {
   id: number;
   created_at: string;
@@ -120,6 +123,7 @@ export interface Model {
   model_url: string;
   name: string;
   size: Size;
+  architecture_version: ArchitectureVersion;
   tone_id: number;
 }
 

@@ -7,6 +7,7 @@ import { LoadToneApp } from './apps/LoadToneApp';
 // LoadModelApp intentionally not rendered — kept for reference
 // import { LoadModelApp } from './apps/LoadModelApp';
 import { FullApiApp } from './apps/FullApiApp';
+import { LanFlowApp } from './apps/LanFlowApp';
 import type { Demo } from './types';
 import t3kLogo from './assets/t3k.svg';
 
@@ -110,6 +111,10 @@ export default function App() {
   if (activeDemo === 'select') return <SelectApp />;
   if (activeDemo === 'load-tone') return <LoadToneApp />;
   if (activeDemo === 'full-api') return <FullApiApp />;
+  // LAN-flow demo depends on the dev-server middleware in
+  // vite-plugin-lan-bridge.ts; gate it to dev so production builds don't
+  // surface a broken option.
+  if (activeDemo === 'lan-flow' && import.meta.env.DEV) return <LanFlowApp />;
 
   // Landing page
   return (
@@ -168,6 +173,23 @@ export default function App() {
           </div>
           <span className="demo-card-cta">Open Demo →</span>
         </button>
+
+        {import.meta.env.DEV && (
+          <button className="demo-card" onClick={() => navigateTo('lan-flow')}>
+            <div className="demo-card-tag">LAN-relay Flow (dev only)</div>
+            <h2 className="demo-card-title">Devo Inc</h2>
+            <p className="demo-card-product">Embedded Hardware (Headless OAuth)</p>
+            <p className="demo-card-desc">
+              Devo Inc ships embedded guitar processors with no system browser. The
+              device opens a LAN listener, shows a QR code, and the user signs in on
+              their phone — tone3000 forwards the OAuth code back to the device.
+            </p>
+            <div className="demo-card-use-case">
+              Best for: Headless devices, kiosks, anything without a browser or keyboard
+            </div>
+            <span className="demo-card-cta">Open Demo →</span>
+          </button>
+        )}
 
       </div>
     </div>

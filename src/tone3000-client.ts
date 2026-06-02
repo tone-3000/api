@@ -90,7 +90,7 @@ function buildAuthorizeUrl(
 export async function startSelectFlow(
   publishableKey: string,
   redirectUri: string,
-  options?: { gears?: string; platform?: string; menubar?: boolean; architecture?: number }
+  options?: { gears?: string; platform?: string; menubar?: boolean, loginHint?: string, architecture?: number }
 ): Promise<void> {
   const pkce = await buildPkceParams();
   const extra: Record<string, string> = { prompt: 'select_tone' };
@@ -98,6 +98,7 @@ export async function startSelectFlow(
   if (options?.platform) extra.platform = options.platform;
   if (options?.menubar) extra.menubar = 'true';
   if (options?.architecture) extra.architecture = options.architecture.toString();
+  if (options?.loginHint) extra.login_hint = options.loginHint;
   window.location.href = buildAuthorizeUrl(publishableKey, redirectUri, extra, pkce);
 }
 
@@ -113,7 +114,7 @@ export async function startSelectFlow(
 export async function startSelectFlowPopup(
   publishableKey: string,
   redirectUri: string,
-  options?: { gears?: string; platform?: string; menubar?: boolean; architecture?: number }
+  options?: { gears?: string; platform?: string; menubar?: boolean, loginHint?: string, architecture?: number }
 ): Promise<Window | null> {
   // Set before window.open so the popup inherits this flag via sessionStorage copy;
   // remove it from the parent immediately so only the popup retains it.
@@ -124,6 +125,7 @@ export async function startSelectFlowPopup(
   if (options?.platform) extra.platform = options.platform;
   if (options?.menubar) extra.menubar = 'true';
   if (options?.architecture) extra.architecture = options.architecture.toString();
+  if (options?.loginHint) extra.login_hint = options.loginHint;
   const url = buildAuthorizeUrl(publishableKey, redirectUri, extra, pkce);
 
   const width = 480;
@@ -212,7 +214,7 @@ export async function startLoadToneFlow(
   publishableKey: string,
   redirectUri: string,
   toneId: number | string,
-  options?: { gears?: string; platform?: string; menubar?: boolean; architecture?: number }
+  options?: { gears?: string; platform?: string; menubar?: boolean, loginHint?: string, architecture?: number }
 ): Promise<void> {
   const pkce = await buildPkceParams();
   const extra: Record<string, string> = { prompt: 'load_tone', tone_id: String(toneId) };
@@ -220,6 +222,7 @@ export async function startLoadToneFlow(
   if (options?.platform) extra.platform = options.platform;
   if (options?.menubar) extra.menubar = 'true';
   if (options?.architecture) extra.architecture = options.architecture.toString();
+  if (options?.loginHint) extra.login_hint = options.loginHint;
   window.location.href = buildAuthorizeUrl(publishableKey, redirectUri, extra, pkce);
 }
 
@@ -235,7 +238,7 @@ export async function startLoadToneFlowPopup(
   publishableKey: string,
   redirectUri: string,
   toneId: number | string,
-  options?: { gears?: string; platform?: string; menubar?: boolean; architecture?: number }
+  options?: { gears?: string; platform?: string; menubar?: boolean, loginHint?: string, architecture?: number }
 ): Promise<Window | null> {
   // Set before window.open so the popup inherits this flag via sessionStorage copy;
   // remove it from the parent immediately so only the popup retains it.
@@ -246,6 +249,7 @@ export async function startLoadToneFlowPopup(
   if (options?.platform) extra.platform = options.platform;
   if (options?.menubar) extra.menubar = 'true';
   if (options?.architecture) extra.architecture = options.architecture.toString();
+  if (options?.loginHint) extra.login_hint = options.loginHint;
   const url = buildAuthorizeUrl(publishableKey, redirectUri, extra, pkce);
   const width = 480;
   const height = 700;
@@ -265,7 +269,7 @@ export async function startLoadToneFlowPopupByModelId(
   publishableKey: string,
   redirectUri: string,
   modelId: number | string,
-  options?: { gears?: string; platform?: string; menubar?: boolean; architecture?: number }
+  options?: { gears?: string; platform?: string; menubar?: boolean, loginHint?: string, architecture?: number }
 ): Promise<Window | null> {
   sessionStorage.setItem('t3k_popup_mode', '1');
   const pkce = await buildPkceParams();
@@ -274,6 +278,7 @@ export async function startLoadToneFlowPopupByModelId(
   if (options?.platform) extra.platform = options.platform;
   if (options?.menubar) extra.menubar = 'true';
   if (options?.architecture) extra.architecture = options.architecture.toString();
+  if (options?.loginHint) extra.login_hint = options.loginHint;
   const url = buildAuthorizeUrl(publishableKey, redirectUri, extra, pkce);
   const width = 480;
   const height = 700;
@@ -314,10 +319,90 @@ export async function startLoadModelFlow(
  */
 export async function startStandardFlow(
   publishableKey: string,
-  redirectUri: string
+  redirectUri: string,
+  options?: { loginHint?: string }
 ): Promise<void> {
   const pkce = await buildPkceParams();
-  window.location.href = buildAuthorizeUrl(publishableKey, redirectUri, {}, pkce);
+  const extra: Record<string, string> = {};
+  if (options?.loginHint) extra.login_hint = options.loginHint;
+  window.location.href = buildAuthorizeUrl(publishableKey, redirectUri, extra, pkce);
+}
+
+/**
+ * **LAN-relay Flow** — For headless devices on a LAN. The "device" (here, the
+ * laptop's Vite dev server) opens an HTTP listener at an RFC1918 address; the
+ * user scans a QR with their phone, completes auth in the phone browser, and
+ * the OAuth code lands at the device's LAN listener via tone3000's bridge.
+ *
+ * This helper only generates the authorize URL — actually receiving the
+ * callback requires a real LAN listener (see vite-plugin-lan-bridge.ts in this
+ * repo for the dev-time implementation, or your device firmware in
+ * production). PKCE state is stored in sessionStorage as with the other
+ * flows; pair this call with `exchangeCode()` once the listener captures
+ * code+state.
+ *
+ * @param lanCallbackUri  The redirect_uri the device's listener will receive.
+ *                        Must be `http://` to RFC1918 / link-local
+ *                        (10/8, 172.16-31, 192.168/16, 169.254/16).
+ */
+export async function startLanRelayFlow(
+  publishableKey: string,
+  lanCallbackUri: string,
+): Promise<{ authorizeUrl: string; state: string }> {
+  const pkce = await buildPkceParams();
+  const authorizeUrl = buildAuthorizeUrl(publishableKey, lanCallbackUri, {}, pkce);
+  return { authorizeUrl, state: pkce.state };
+}
+
+/**
+ * Exchange an authorization code for tokens. Used by `handleOAuthCallback`
+ * (URL-driven callbacks) and by the LAN-relay demo (callbacks that arrive via
+ * the LAN listener and are forwarded to the React UI by the dev plugin).
+ *
+ * Verifies that `returnedState` matches the value `buildPkceParams()` stored
+ * in sessionStorage, then redeems the code with the verifier. The PKCE
+ * values are cleared from sessionStorage regardless of outcome.
+ */
+export async function exchangeCode(
+  publishableKey: string,
+  redirectUri: string,
+  code: string,
+  returnedState: string,
+): Promise<OAuthCallbackResult> {
+  const storedState = sessionStorage.getItem('t3k_state');
+  const codeVerifier = sessionStorage.getItem('t3k_code_verifier');
+  sessionStorage.removeItem('t3k_state');
+  sessionStorage.removeItem('t3k_code_verifier');
+
+  if (returnedState !== storedState) return { ok: false, error: 'state_mismatch' };
+  if (!codeVerifier) return { ok: false, error: 'missing_verifier' };
+
+  const res = await fetch(`${T3K_API}/api/v1/oauth/token`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({
+      grant_type: 'authorization_code',
+      code,
+      code_verifier: codeVerifier,
+      redirect_uri: redirectUri,
+      client_id: publishableKey,
+    }),
+  });
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    return { ok: false, error: (err as { error?: string }).error ?? 'token_exchange_failed' };
+  }
+
+  const data = await res.json();
+  return {
+    ok: true,
+    tokens: {
+      access_token: data.access_token,
+      refresh_token: data.refresh_token,
+      expires_at: Date.now() + data.expires_in * 1000,
+    },
+  };
 }
 
 // ─── Callback handler ─────────────────────────────────────────────────────────

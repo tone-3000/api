@@ -10,7 +10,7 @@ export enum Gear {
   Ir = 'ir',
 }
 
-export enum Platform {
+export enum Format {
   Nam = 'nam',
   Ir = 'ir',
   AidaX = 'aida-x',
@@ -101,7 +101,7 @@ export interface Tone {
   images: string[] | null;
   is_public: boolean | null;
   links: string[] | null;
-  platform: Platform;
+  format: Format;
   license: License;
   sizes: Size[];
   makes: Make[];

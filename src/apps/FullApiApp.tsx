@@ -268,7 +268,7 @@ export function FullApiApp() {
                   <p className="tone-detail-creator">by @{selectedTone.user.username}</p>
                 </div>
                 <div className="tone-detail-badges">
-                  <span className="badge badge--platform">{selectedTone.platform}</span>
+                  <span className="badge badge--format">{selectedTone.format}</span>
                   <span className="badge badge--gear">{selectedTone.gear}</span>
                   {!selectedTone.is_public && <span className="badge badge--private">Private</span>}
                 </div>

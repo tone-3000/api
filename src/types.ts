@@ -4,9 +4,15 @@ export type Demo = 'select' | 'load-tone' | 'load-model' | 'full-api' | 'lan-flo
 
 export enum Gear {
   Amp = 'amp',
+  AmpCab = 'amp-cab',
+  /** @deprecated Responses emit `amp-cab` instead; still accepted on input. */
   FullRig = 'full-rig',
   Pedal = 'pedal',
   Outboard = 'outboard',
+  Cab = 'cab',
+  Space = 'space',
+  Experimental = 'experimental',
+  /** @deprecated Being retired as a gear; filter with `format: 'ir'` instead. */
   Ir = 'ir',
 }
 

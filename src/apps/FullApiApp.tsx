@@ -2,6 +2,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { PUBLISHABLE_KEY_FULL, REDIRECT_URI } from '../config';
 import { startStandardFlow } from '../tone3000-client';
+import { GEAR_FILTER_VALUES, GEAR_LABELS, formatLabel, gearLabel } from '../labels';
 import { t3kClient } from '../App';
 import { ToneCard } from '../components/ToneCard';
 import { CrossOriginImage } from '../components/CrossOriginImage';
@@ -268,8 +269,8 @@ export function FullApiApp() {
                   <p className="tone-detail-creator">by @{selectedTone.user.username}</p>
                 </div>
                 <div className="tone-detail-badges">
-                  <span className="badge badge--format">{selectedTone.format}</span>
-                  <span className="badge badge--gear">{selectedTone.gear}</span>
+                  <span className="badge badge--format">{formatLabel(selectedTone.format)}</span>
+                  <span className="badge badge--gear">{gearLabel(selectedTone.gear)}</span>
                   {!selectedTone.is_public && <span className="badge badge--private">Private</span>}
                 </div>
               </div>
@@ -348,11 +349,9 @@ export function FullApiApp() {
                         onChange={e => { setGearFilter(e.target.value as Gear | ''); setTonesPage(1); }}
                       >
                         <option value="">All Gear</option>
-                        <option value="amp">Amp</option>
-                        <option value="pedal">Pedal</option>
-                        <option value="full-rig">Full Rig</option>
-                        <option value="outboard">Outboard</option>
-                        <option value="ir">IR</option>
+                        {GEAR_FILTER_VALUES.map(g => (
+                          <option key={g} value={g}>{GEAR_LABELS[g]}</option>
+                        ))}
                       </select>
                       <select
                         className="select-filter"

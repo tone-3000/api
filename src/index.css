@@ -198,6 +198,7 @@ button.tone-card:hover { border-color: var(--accent); box-shadow: 0 2px 8px rgba
 .filter-label { font-size: 12px; font-weight: 600; color: var(--text-2); }
 .filter-hint { margin-top: 10px; font-size: 12px; color: var(--text-3); line-height: 1.5; }
 .filter-actions { display: flex; align-items: center; gap: 12px; margin-top: 10px; flex-wrap: wrap; }
+.filter-pending { font-size: 11px; color: var(--text-3); white-space: nowrap; }
 .filter-request-url { flex: 1; min-width: 0; font-size: 11px; color: var(--text-3); background: var(--surface2); border: 1px solid var(--border); border-radius: 6px; padding: 5px 8px; overflow-x: auto; white-space: nowrap; }
 
 /* ─── Profile ────────────────────────────────────────────────────────────────── */

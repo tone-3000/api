@@ -18,6 +18,9 @@ export function SelectApp() {
   const [error, setError] = useState<string | null>(null);
   const [canceled, setCanceled] = useState(false);
   const [browsing, setBrowsing] = useState(false);
+  // Demo control for the select-flow preview param: renders audition players on
+  // the search results, profiles, and tone detail inside the flow.
+  const [preview, setPreview] = useState(true);
   const popupRef = useRef<Window | null>(null);
 
   // Listen for the OAuth callback relayed from the popup (postMessage or BroadcastChannel).
@@ -85,7 +88,7 @@ export function SelectApp() {
   const handleBrowse = () => {
     setCanceled(false);
     setBrowsing(true);
-    startSelectFlowPopup(PUBLISHABLE_KEY_SELECT, REDIRECT_URI, { gears: 'full-rig', menubar: true, architecture: 2 })
+    startSelectFlowPopup(PUBLISHABLE_KEY_SELECT, REDIRECT_URI, { gears: 'full-rig', menubar: true, architecture: 2, preview })
       .then((popup) => { popupRef.current = popup; });
   };
 
@@ -104,6 +107,14 @@ export function SelectApp() {
       <main className="app-main">
         <div className="section-header">
           <h2 className="section-title">Tone Library</h2>
+          <label style={{ fontSize: '0.85rem', opacity: 0.8, display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+            <input
+              type="checkbox"
+              checked={preview}
+              onChange={(e) => setPreview(e.target.checked)}
+            />
+            Preview players
+          </label>
           {tone && (
             <button className="btn btn-secondary" onClick={handleBrowse}>
               Browse Different Tone

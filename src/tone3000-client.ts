@@ -90,7 +90,7 @@ function buildAuthorizeUrl(
 export async function startSelectFlow(
   publishableKey: string,
   redirectUri: string,
-  options?: { gears?: string; platform?: string; menubar?: boolean, loginHint?: string, architecture?: number }
+  options?: { gears?: string; platform?: string; menubar?: boolean, loginHint?: string, architecture?: number, preview?: boolean }
 ): Promise<void> {
   const pkce = await buildPkceParams();
   const extra: Record<string, string> = { prompt: 'select_tone' };
@@ -99,6 +99,9 @@ export async function startSelectFlow(
   if (options?.menubar) extra.menubar = 'true';
   if (options?.architecture) extra.architecture = options.architecture.toString();
   if (options?.loginHint) extra.login_hint = options.loginHint;
+  // Opts the flow into in-flow preview players (audition tones from the search
+  // results, profiles, and tone detail without leaving TONE3000).
+  if (options?.preview) extra.preview = 'true';
   window.location.href = buildAuthorizeUrl(publishableKey, redirectUri, extra, pkce);
 }
 
@@ -114,7 +117,7 @@ export async function startSelectFlow(
 export async function startSelectFlowPopup(
   publishableKey: string,
   redirectUri: string,
-  options?: { gears?: string; platform?: string; menubar?: boolean, loginHint?: string, architecture?: number }
+  options?: { gears?: string; platform?: string; menubar?: boolean, loginHint?: string, architecture?: number, preview?: boolean }
 ): Promise<Window | null> {
   // Set before window.open so the popup inherits this flag via sessionStorage copy;
   // remove it from the parent immediately so only the popup retains it.
@@ -126,6 +129,9 @@ export async function startSelectFlowPopup(
   if (options?.menubar) extra.menubar = 'true';
   if (options?.architecture) extra.architecture = options.architecture.toString();
   if (options?.loginHint) extra.login_hint = options.loginHint;
+  // Opts the flow into in-flow preview players (audition tones from the search
+  // results, profiles, and tone detail without leaving TONE3000).
+  if (options?.preview) extra.preview = 'true';
   const url = buildAuthorizeUrl(publishableKey, redirectUri, extra, pkce);
 
   const width = 480;

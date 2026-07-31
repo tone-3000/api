@@ -1,5 +1,6 @@
 // src/components/ToneCard.tsx
 import type { Tone } from '../types';
+import { formatLabel, gearLabel } from '../labels';
 import { CrossOriginImage } from './CrossOriginImage';
 
 interface Props {
@@ -7,16 +8,6 @@ interface Props {
   onClick?: () => void;
   compact?: boolean;
 }
-
-const FORMAT_LABELS: Record<string, string> = {
-  'nam': 'NAM', 'ir': 'IR', 'aida-x': 'AIDA-X',
-  'aa-snapshot': 'Snapshot', 'proteus': 'Proteus',
-};
-
-const GEAR_LABELS: Record<string, string> = {
-  'amp': 'Amp', 'full-rig': 'Full Rig', 'pedal': 'Pedal',
-  'outboard': 'Outboard', 'ir': 'IR',
-};
 
 export function ToneCard({ tone, onClick, compact = false }: Props) {
   const Tag = onClick ? 'button' : 'div';
@@ -33,8 +24,8 @@ export function ToneCard({ tone, onClick, compact = false }: Props) {
           <p className="tone-card-desc">{tone.description}</p>
         )}
         <div className="tone-card-badges">
-          <span className="badge badge--format">{FORMAT_LABELS[tone.format] ?? tone.format}</span>
-          <span className="badge badge--gear">{GEAR_LABELS[tone.gear] ?? tone.gear}</span>
+          <span className="badge badge--format">{formatLabel(tone.format)}</span>
+          <span className="badge badge--gear">{gearLabel(tone.gear)}</span>
           {!tone.is_public && <span className="badge badge--private">Private</span>}
         </div>
         {!compact && (

@@ -90,7 +90,7 @@ function buildAuthorizeUrl(
 export async function startSelectFlow(
   publishableKey: string,
   redirectUri: string,
-  options?: { gears?: string; format?: string; menubar?: boolean, loginHint?: string, architecture?: number }
+  options?: { gears?: string; format?: string; menubar?: boolean, loginHint?: string, architecture?: number, preview?: boolean }
 ): Promise<void> {
   const pkce = await buildPkceParams();
   const extra: Record<string, string> = { prompt: 'select_tone' };
@@ -99,6 +99,9 @@ export async function startSelectFlow(
   if (options?.menubar) extra.menubar = 'true';
   if (options?.architecture) extra.architecture = options.architecture.toString();
   if (options?.loginHint) extra.login_hint = options.loginHint;
+  // Opts the flow into in-flow preview players (audition tones from the search
+  // results, profiles, and tone detail without leaving TONE3000).
+  if (options?.preview) extra.preview = 'true';
   window.location.href = buildAuthorizeUrl(publishableKey, redirectUri, extra, pkce);
 }
 
@@ -114,7 +117,7 @@ export async function startSelectFlow(
 export async function startSelectFlowPopup(
   publishableKey: string,
   redirectUri: string,
-  options?: { gears?: string; format?: string; menubar?: boolean, loginHint?: string, architecture?: number }
+  options?: { gears?: string; format?: string; menubar?: boolean, loginHint?: string, architecture?: number, preview?: boolean }
 ): Promise<Window | null> {
   // Set before window.open so the popup inherits this flag via sessionStorage copy;
   // remove it from the parent immediately so only the popup retains it.
@@ -126,6 +129,9 @@ export async function startSelectFlowPopup(
   if (options?.menubar) extra.menubar = 'true';
   if (options?.architecture) extra.architecture = options.architecture.toString();
   if (options?.loginHint) extra.login_hint = options.loginHint;
+  // Opts the flow into in-flow preview players (audition tones from the search
+  // results, profiles, and tone detail without leaving TONE3000).
+  if (options?.preview) extra.preview = 'true';
   const url = buildAuthorizeUrl(publishableKey, redirectUri, extra, pkce);
 
   const width = 480;
@@ -207,7 +213,7 @@ export async function handleOAuthCallbackFromPopup(
  * the callback may differ from the one you requested. Any `gears`, `format`,
  * or `architecture` filters you pass are applied to that replacement browse view.
  *
- * @param gears - Optional underscore-separated gear filter (e.g. 'amp_full-rig')
+ * @param gears - Optional underscore-separated gear filter (e.g. 'amp_amp-cab')
  * @param format - Optional format filter (e.g. 'nam', 'aida-x')
  */
 export async function startLoadToneFlow(
@@ -483,6 +489,33 @@ export async function handleOAuthCallback(
   return { ok: true, tokens, toneId, modelId, ...(canceled ? { canceled: true } : {}) };
 }
 
+// ─── Search query building ────────────────────────────────────────────────────
+
+/**
+ * Serialize SearchTonesParams into the query string /api/v1/tones/search
+ * expects. Exported so a UI can preview the exact request it's about to make
+ * without re-deriving the separator rules.
+ *
+ * gears, sizes, tags and makes are underscore-separated. creators is
+ * comma-separated: usernames may contain an underscore, so the API can't use
+ * one as a delimiter there. Callers pass plain arrays and never see this.
+ */
+export function buildSearchTonesQuery(params?: SearchTonesParams): URLSearchParams {
+  const qs = new URLSearchParams();
+  if (params?.query) qs.set('query', params.query);
+  if (params?.page) qs.set('page', String(params.page));
+  if (params?.pageSize) qs.set('page_size', String(params.pageSize));
+  if (params?.sort) qs.set('sort', params.sort);
+  if (params?.gears?.length) qs.set('gears', params.gears.join('_'));
+  if (params?.format) qs.set('format', params.format);
+  if (params?.sizes?.length) qs.set('sizes', params.sizes.join('_'));
+  if (params?.tags?.length) qs.set('tags', params.tags.join('_'));
+  if (params?.makes?.length) qs.set('makes', params.makes.join('_'));
+  if (params?.creators?.length) qs.set('creators', params.creators.join(','));
+  if (params?.architecture != null) qs.set('architecture', String(params.architecture));
+  return qs;
+}
+
 // ─── Token refresh ────────────────────────────────────────────────────────────
 
 /** Exchange a refresh token for a new access token. */
@@ -630,15 +663,7 @@ export class T3KClient {
 
   /** Search and filter the TONE3000 tone catalog. */
   async searchTones(params?: SearchTonesParams): Promise<PaginatedResponse<Tone>> {
-    const qs = new URLSearchParams();
-    if (params?.query) qs.set('query', params.query);
-    if (params?.page) qs.set('page', String(params.page));
-    if (params?.pageSize) qs.set('page_size', String(params.pageSize));
-    if (params?.sort) qs.set('sort', params.sort);
-    if (params?.gears?.length) qs.set('gears', params.gears.join('_'));
-    if (params?.sizes?.length) qs.set('sizes', params.sizes.join('_'));
-    if (params?.architecture != null) qs.set('architecture', String(params.architecture));
-    const res = await this.fetch(`/api/v1/tones/search?${qs}`);
+    const res = await this.fetch(`/api/v1/tones/search?${buildSearchTonesQuery(params)}`);
     if (!res.ok) throw new Error(`searchTones failed: ${res.status}`);
     return res.json();
   }

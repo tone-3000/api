@@ -1,7 +1,11 @@
 // src/apps/FullApiApp.tsx
 import { useState, useEffect, useCallback } from 'react';
 import { PUBLISHABLE_KEY_FULL, REDIRECT_URI } from '../config';
-import { startStandardFlow } from '../tone3000-client';
+import { startStandardFlow, buildSearchTonesQuery } from '../tone3000-client';
+import {
+  FORMAT_FILTER_VALUES, FORMAT_LABELS, GEAR_FILTER_VALUES, GEAR_LABELS,
+  formatLabel, gearLabel,
+} from '../labels';
 import { t3kClient } from '../App';
 import { ToneCard } from '../components/ToneCard';
 import { CrossOriginImage } from '../components/CrossOriginImage';
@@ -11,12 +15,15 @@ import { Spinner } from '../components/Spinner';
 import { ErrorBanner } from '../components/ErrorBanner';
 import type {
   User, Tone, Model, PublicUser,
-  TonesSort, Gear,
+  TonesSort, Gear, Format,
 } from '../types';
 import { TonesSort as TonesSortEnum } from '../types';
 import t3kLogo from '../assets/t3k.svg';
 
 type Section = 'profile' | 'my-tones' | 'favorites' | 'browse' | 'artists';
+
+/** "rock, high gain" → ["rock", "high gain"]. Empty entries dropped. */
+const toList = (s: string) => s.split(',').map(v => v.trim()).filter(Boolean);
 
 export function FullApiApp() {
   const [connected, setConnected] = useState(t3kClient.isConnected());
@@ -35,7 +42,25 @@ export function FullApiApp() {
   // Search/filter state (Browse section)
   const [query, setQuery] = useState('');
   const [gearFilter, setGearFilter] = useState<Gear | ''>('');
+  const [formatFilter, setFormatFilter] = useState<Format | ''>('');
   const [sort, setSort] = useState<TonesSort>(TonesSortEnum.Trending);
+  // Name-based filters. Typed as comma-separated lists regardless of how the
+  // API spells each one on the wire — the client handles that.
+  const [tagsInput, setTagsInput] = useState('');
+  const [makesInput, setMakesInput] = useState('');
+  const [creatorsInput, setCreatorsInput] = useState('');
+  const [lastRequestUrl, setLastRequestUrl] = useState<string | null>(null);
+
+  const clearFilters = () => {
+    setQuery('');
+    setGearFilter('');
+    setFormatFilter('');
+    setTagsInput('');
+    setMakesInput('');
+    setCreatorsInput('');
+    setSort(TonesSortEnum.Trending);
+    setTonesPage(1);
+  };
 
   // Tone detail state
   const [selectedTone, setSelectedTone] = useState<(Tone & { models: Model[] }) | null>(null);
@@ -104,19 +129,25 @@ export function FullApiApp() {
 
     if (section === 'browse') {
       setTonesLoading(true);
+      const params = {
+        query: query || undefined,
+        gears: gearFilter ? [gearFilter as Gear] : undefined,
+        format: formatFilter || undefined,
+        tags: toList(tagsInput),
+        makes: toList(makesInput),
+        creators: toList(creatorsInput),
+        sort,
+        page: tonesPage,
+        pageSize: 12,
+        architecture: 2,
+      };
+      setLastRequestUrl(`/api/v1/tones/search?${buildSearchTonesQuery(params)}`);
       try {
-        const res = await t3kClient.searchTones({
-          query: query || undefined,
-          gears: gearFilter ? [gearFilter as Gear] : undefined,
-          sort,
-          page: tonesPage,
-          pageSize: 12,
-          architecture: 2,
-        });
+        const res = await t3kClient.searchTones(params);
         setTones(res.data);
         setTonesTotalPages(res.total_pages);
-      } catch {
-        setError('Search failed. Please try again.');
+      } catch (e) {
+        setError(e instanceof Error ? e.message : 'Search failed. Please try again.');
       } finally {
         setTonesLoading(false);
       }
@@ -135,7 +166,7 @@ export function FullApiApp() {
         setArtistsLoading(false);
       }
     }
-  }, [section, tonesPage, artistsPage, query, gearFilter, sort]);
+  }, [section, tonesPage, artistsPage, query, gearFilter, formatFilter, sort, tagsInput, makesInput, creatorsInput]);
 
   useEffect(() => {
     if (connected) loadSectionData();
@@ -268,8 +299,8 @@ export function FullApiApp() {
                   <p className="tone-detail-creator">by @{selectedTone.user.username}</p>
                 </div>
                 <div className="tone-detail-badges">
-                  <span className="badge badge--format">{selectedTone.format}</span>
-                  <span className="badge badge--gear">{selectedTone.gear}</span>
+                  <span className="badge badge--format">{formatLabel(selectedTone.format)}</span>
+                  <span className="badge badge--gear">{gearLabel(selectedTone.gear)}</span>
                   {!selectedTone.is_public && <span className="badge badge--private">Private</span>}
                 </div>
               </div>
@@ -348,11 +379,19 @@ export function FullApiApp() {
                         onChange={e => { setGearFilter(e.target.value as Gear | ''); setTonesPage(1); }}
                       >
                         <option value="">All Gear</option>
-                        <option value="amp">Amp</option>
-                        <option value="pedal">Pedal</option>
-                        <option value="full-rig">Full Rig</option>
-                        <option value="outboard">Outboard</option>
-                        <option value="ir">IR</option>
+                        {GEAR_FILTER_VALUES.map(g => (
+                          <option key={g} value={g}>{GEAR_LABELS[g]}</option>
+                        ))}
+                      </select>
+                      <select
+                        className="select-filter"
+                        value={formatFilter}
+                        onChange={e => { setFormatFilter(e.target.value as Format | ''); setTonesPage(1); }}
+                      >
+                        <option value="">All Formats</option>
+                        {FORMAT_FILTER_VALUES.map(f => (
+                          <option key={f} value={f}>{FORMAT_LABELS[f]}</option>
+                        ))}
                       </select>
                       <select
                         className="select-filter"
@@ -366,6 +405,58 @@ export function FullApiApp() {
                       </select>
                       <button type="submit" className="btn btn-primary">Search</button>
                     </form>
+                  )}
+
+                  {section === 'browse' && (
+                    <div className="filter-panel">
+                      <div className="filter-grid">
+                        <label className="filter-field">
+                          <span className="filter-label">Tags</span>
+                          <input
+                            type="text"
+                            className="search-input"
+                            placeholder="rock, high gain"
+                            value={tagsInput}
+                            onChange={e => { setTagsInput(e.target.value); setTonesPage(1); }}
+                          />
+                        </label>
+                        <label className="filter-field">
+                          <span className="filter-label">Makes &amp; Models</span>
+                          <input
+                            type="text"
+                            className="search-input"
+                            placeholder="Shure SM57, Peavey 5150"
+                            value={makesInput}
+                            onChange={e => { setMakesInput(e.target.value); setTonesPage(1); }}
+                          />
+                        </label>
+                        <label className="filter-field">
+                          <span className="filter-label">Creators</span>
+                          <input
+                            type="text"
+                            className="search-input"
+                            placeholder="tone3000, amalgamaudio"
+                            value={creatorsInput}
+                            onChange={e => { setCreatorsInput(e.target.value); setTonesPage(1); }}
+                          />
+                        </label>
+                      </div>
+                      <p className="filter-hint">
+                        Comma-separate multiple values. Names must match exactly, and values
+                        within one field are OR'd — a tone matches if it has any of them.
+                        Different fields are AND'd.
+                      </p>
+                      <div className="filter-actions">
+                        <button type="button" className="btn btn-ghost btn-small" onClick={clearFilters}>
+                          Clear filters
+                        </button>
+                        {lastRequestUrl && (
+                          <code className="filter-request-url" title={lastRequestUrl}>
+                            {lastRequestUrl}
+                          </code>
+                        )}
+                      </div>
+                    </div>
                   )}
 
                   {tonesLoading ? <Spinner /> : (

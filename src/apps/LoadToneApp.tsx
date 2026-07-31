@@ -24,11 +24,11 @@ type Preset = {
 
 // Simulated presets — in a real app these come from your database
 const PRESETS: Preset[] = [
-  { id: 'preset-1', name: 'British Citrus', description: 'Iconic Brit-rock tone', toneId: 18, gears: 'full-rig' },
-  { id: 'preset-2', name: 'Jazz Clean', description: 'Sparkly clean tone', toneId: 10912, gears: 'full-rig' },
-  { id: 'preset-3', name: 'Bright Crunch', description: 'Heavy vintage rock tone', toneId: 57529, gears: 'full-rig' },
-  { id: 'preset-4', name: 'A Private Life', description: 'An example private tone', toneId: 11014, gears: 'full-rig' },
-  { id: 'preset-5', name: 'Ghost Notes', description: 'An example deleted tone', toneId: 999999999, gears: 'full-rig' },
+  { id: 'preset-1', name: 'British Citrus', description: 'Iconic Brit-rock tone', toneId: 18, gears: 'amp-cab' },
+  { id: 'preset-2', name: 'Jazz Clean', description: 'Sparkly clean tone', toneId: 10912, gears: 'amp-cab' },
+  { id: 'preset-3', name: 'Bright Crunch', description: 'Heavy vintage rock tone', toneId: 57529, gears: 'amp-cab' },
+  { id: 'preset-4', name: 'A Private Life', description: 'An example private tone', toneId: 11014, gears: 'amp-cab' },
+  { id: 'preset-5', name: 'Ghost Notes', description: 'An example deleted tone', toneId: 999999999, gears: 'amp-cab' },
 ];
 
 export function LoadToneApp() {

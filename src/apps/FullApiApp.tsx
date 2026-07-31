@@ -2,7 +2,10 @@
 import { useState, useEffect, useCallback } from 'react';
 import { PUBLISHABLE_KEY_FULL, REDIRECT_URI } from '../config';
 import { startStandardFlow, buildSearchTonesQuery } from '../tone3000-client';
-import { GEAR_FILTER_VALUES, GEAR_LABELS, formatLabel, gearLabel } from '../labels';
+import {
+  FORMAT_FILTER_VALUES, FORMAT_LABELS, GEAR_FILTER_VALUES, GEAR_LABELS,
+  formatLabel, gearLabel,
+} from '../labels';
 import { t3kClient } from '../App';
 import { ToneCard } from '../components/ToneCard';
 import { CrossOriginImage } from '../components/CrossOriginImage';
@@ -12,7 +15,7 @@ import { Spinner } from '../components/Spinner';
 import { ErrorBanner } from '../components/ErrorBanner';
 import type {
   User, Tone, Model, PublicUser,
-  TonesSort, Gear,
+  TonesSort, Gear, Format,
 } from '../types';
 import { TonesSort as TonesSortEnum } from '../types';
 import t3kLogo from '../assets/t3k.svg';
@@ -39,6 +42,7 @@ export function FullApiApp() {
   // Search/filter state (Browse section)
   const [query, setQuery] = useState('');
   const [gearFilter, setGearFilter] = useState<Gear | ''>('');
+  const [formatFilter, setFormatFilter] = useState<Format | ''>('');
   const [sort, setSort] = useState<TonesSort>(TonesSortEnum.Trending);
   // Name-based filters. Typed as comma-separated lists regardless of how the
   // API spells each one on the wire — the client handles that.
@@ -50,6 +54,7 @@ export function FullApiApp() {
   const clearFilters = () => {
     setQuery('');
     setGearFilter('');
+    setFormatFilter('');
     setTagsInput('');
     setMakesInput('');
     setCreatorsInput('');
@@ -127,6 +132,7 @@ export function FullApiApp() {
       const params = {
         query: query || undefined,
         gears: gearFilter ? [gearFilter as Gear] : undefined,
+        format: formatFilter || undefined,
         tags: toList(tagsInput),
         makes: toList(makesInput),
         creators: toList(creatorsInput),
@@ -160,7 +166,7 @@ export function FullApiApp() {
         setArtistsLoading(false);
       }
     }
-  }, [section, tonesPage, artistsPage, query, gearFilter, sort, tagsInput, makesInput, creatorsInput]);
+  }, [section, tonesPage, artistsPage, query, gearFilter, formatFilter, sort, tagsInput, makesInput, creatorsInput]);
 
   useEffect(() => {
     if (connected) loadSectionData();
@@ -375,6 +381,16 @@ export function FullApiApp() {
                         <option value="">All Gear</option>
                         {GEAR_FILTER_VALUES.map(g => (
                           <option key={g} value={g}>{GEAR_LABELS[g]}</option>
+                        ))}
+                      </select>
+                      <select
+                        className="select-filter"
+                        value={formatFilter}
+                        onChange={e => { setFormatFilter(e.target.value as Format | ''); setTonesPage(1); }}
+                      >
+                        <option value="">All Formats</option>
+                        {FORMAT_FILTER_VALUES.map(f => (
+                          <option key={f} value={f}>{FORMAT_LABELS[f]}</option>
                         ))}
                       </select>
                       <select

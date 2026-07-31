@@ -21,7 +21,16 @@ export const formatLabel = (format?: string | null): string =>
 export const gearLabel = (gear?: string | null): string =>
   gear ? (GEAR_LABELS[gear] ?? gear) : '';
 
-/** Gear values offered in filter UI. Excludes `full-rig`, which `amp-cab` replaced. */
+/**
+ * Gear values offered in filter UI. Excludes both deprecated values: `full-rig`
+ * (replaced by `amp-cab`) and `ir` (the API strips it from `gears` and infers
+ * `format=ir` instead — filter with the format dropdown).
+ */
 export const GEAR_FILTER_VALUES = [
-  'amp', 'amp-cab', 'pedal', 'outboard', 'cab', 'space', 'experimental', 'ir',
+  'amp', 'amp-cab', 'pedal', 'outboard', 'cab', 'space', 'experimental',
+] as const;
+
+/** Format values offered in filter UI. */
+export const FORMAT_FILTER_VALUES = [
+  'nam', 'ir', 'aida-x', 'aa-snapshot', 'proteus',
 ] as const;

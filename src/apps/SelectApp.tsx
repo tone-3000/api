@@ -88,7 +88,7 @@ export function SelectApp() {
   const handleBrowse = () => {
     setCanceled(false);
     setBrowsing(true);
-    startSelectFlowPopup(PUBLISHABLE_KEY_SELECT, REDIRECT_URI, { gears: 'full-rig', menubar: true, architecture: 2, preview })
+    startSelectFlowPopup(PUBLISHABLE_KEY_SELECT, REDIRECT_URI, { gears: 'amp-cab', menubar: true, architecture: 2, preview })
       .then((popup) => { popupRef.current = popup; });
   };
 

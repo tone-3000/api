@@ -213,7 +213,7 @@ export async function handleOAuthCallbackFromPopup(
  * the callback may differ from the one you requested. Any `gears`, `format`,
  * or `architecture` filters you pass are applied to that replacement browse view.
  *
- * @param gears - Optional underscore-separated gear filter (e.g. 'amp_full-rig')
+ * @param gears - Optional underscore-separated gear filter (e.g. 'amp_amp-cab')
  * @param format - Optional format filter (e.g. 'nam', 'aida-x')
  */
 export async function startLoadToneFlow(
@@ -507,6 +507,7 @@ export function buildSearchTonesQuery(params?: SearchTonesParams): URLSearchPara
   if (params?.pageSize) qs.set('page_size', String(params.pageSize));
   if (params?.sort) qs.set('sort', params.sort);
   if (params?.gears?.length) qs.set('gears', params.gears.join('_'));
+  if (params?.format) qs.set('format', params.format);
   if (params?.sizes?.length) qs.set('sizes', params.sizes.join('_'));
   if (params?.tags?.length) qs.set('tags', params.tags.join('_'));
   if (params?.makes?.length) qs.set('makes', params.makes.join('_'));

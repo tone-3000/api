@@ -147,6 +147,8 @@ export interface SearchTonesParams {
   pageSize?: number;
   sort?: TonesSort;
   gears?: Gear[];
+  /** Model format. Filtering IRs goes here, not through `gears`. */
+  format?: Format;
   sizes?: Size[];
   architecture?: number;
   /** Tag names, matched exactly against a tone's `tags`. Multiple values are OR'd. */

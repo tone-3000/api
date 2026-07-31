@@ -25,6 +25,25 @@ type Section = 'profile' | 'my-tones' | 'favorites' | 'browse' | 'artists';
 /** "rock, high gain" → ["rock", "high gain"]. Empty entries dropped. */
 const toList = (s: string) => s.split(',').map(v => v.trim()).filter(Boolean);
 
+/**
+ * Search Tones is heavily rate-limited, so the free-text filters can't fire a
+ * request per keystroke. Inputs stay controlled by their raw state (typing
+ * feels instant); only the debounced copy feeds the search.
+ */
+const SEARCH_DEBOUNCE_MS = 400;
+
+function useDebounced<T>(value: T, delay = SEARCH_DEBOUNCE_MS): [T, () => void] {
+  const [debounced, setDebounced] = useState(value);
+  useEffect(() => {
+    const id = setTimeout(() => setDebounced(value), delay);
+    return () => clearTimeout(id);
+  }, [value, delay]);
+  // Submitting the form shouldn't wait out the timer, and shouldn't search
+  // on the previous keystroke's value either.
+  const flush = useCallback(() => setDebounced(value), [value]);
+  return [debounced, flush];
+}
+
 export function FullApiApp() {
   const [connected, setConnected] = useState(t3kClient.isConnected());
   const [section, setSection] = useState<Section>('browse');
@@ -50,6 +69,16 @@ export function FullApiApp() {
   const [makesInput, setMakesInput] = useState('');
   const [creatorsInput, setCreatorsInput] = useState('');
   const [lastRequestUrl, setLastRequestUrl] = useState<string | null>(null);
+
+  // Only these drive the search. The selects stay undebounced — one click,
+  // one request.
+  const [debouncedQuery, flushQuery] = useDebounced(query);
+  const [debouncedTags, flushTags] = useDebounced(tagsInput);
+  const [debouncedMakes, flushMakes] = useDebounced(makesInput);
+  const [debouncedCreators, flushCreators] = useDebounced(creatorsInput);
+  const searchPending =
+    query !== debouncedQuery || tagsInput !== debouncedTags ||
+    makesInput !== debouncedMakes || creatorsInput !== debouncedCreators;
 
   const clearFilters = () => {
     setQuery('');
@@ -130,12 +159,12 @@ export function FullApiApp() {
     if (section === 'browse') {
       setTonesLoading(true);
       const params = {
-        query: query || undefined,
+        query: debouncedQuery || undefined,
         gears: gearFilter ? [gearFilter as Gear] : undefined,
         format: formatFilter || undefined,
-        tags: toList(tagsInput),
-        makes: toList(makesInput),
-        creators: toList(creatorsInput),
+        tags: toList(debouncedTags),
+        makes: toList(debouncedMakes),
+        creators: toList(debouncedCreators),
         sort,
         page: tonesPage,
         pageSize: 12,
@@ -166,7 +195,8 @@ export function FullApiApp() {
         setArtistsLoading(false);
       }
     }
-  }, [section, tonesPage, artistsPage, query, gearFilter, formatFilter, sort, tagsInput, makesInput, creatorsInput]);
+  }, [section, tonesPage, artistsPage, debouncedQuery, gearFilter, formatFilter, sort,
+      debouncedTags, debouncedMakes, debouncedCreators]);
 
   useEffect(() => {
     if (connected) loadSectionData();
@@ -191,7 +221,12 @@ export function FullApiApp() {
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     setTonesPage(1);
-    loadSectionData();
+    // Promote the pending input values; the effect issues the request. Calling
+    // loadSectionData() here would fire a second one against the stale values.
+    flushQuery();
+    flushTags();
+    flushMakes();
+    flushCreators();
   };
 
   const switchSection = (s: Section) => {
@@ -450,6 +485,7 @@ export function FullApiApp() {
                         <button type="button" className="btn btn-ghost btn-small" onClick={clearFilters}>
                           Clear filters
                         </button>
+                        {searchPending && <span className="filter-pending">typing…</span>}
                         {lastRequestUrl && (
                           <code className="filter-request-url" title={lastRequestUrl}>
                             {lastRequestUrl}

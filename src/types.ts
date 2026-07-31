@@ -143,6 +143,12 @@ export interface SearchTonesParams {
   gears?: Gear[];
   sizes?: Size[];
   architecture?: number;
+  /** Tag names, matched exactly against a tone's `tags`. Multiple values are OR'd. */
+  tags?: string[];
+  /** Make/model names, matched exactly against a tone's `makes`. OR'd. */
+  makes?: string[];
+  /** Creator usernames, matched exactly against a tone's `user.username`. OR'd. */
+  creators?: string[];
 }
 
 export interface ListModelsParams {

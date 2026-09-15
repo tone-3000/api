@@ -8,6 +8,7 @@ import { LoadToneApp } from './apps/LoadToneApp';
 // import { LoadModelApp } from './apps/LoadModelApp';
 import { FullApiApp } from './apps/FullApiApp';
 import { LanFlowApp } from './apps/LanFlowApp';
+import { UploadApp } from './apps/UploadApp';
 import type { Demo } from './types';
 import t3kLogo from './assets/t3k.svg';
 
@@ -111,6 +112,7 @@ export default function App() {
   if (activeDemo === 'select') return <SelectApp />;
   if (activeDemo === 'load-tone') return <LoadToneApp />;
   if (activeDemo === 'full-api') return <FullApiApp />;
+  if (activeDemo === 'upload') return <UploadApp />;
   // LAN-flow demo depends on the dev-server middleware in
   // vite-plugin-lan-bridge.ts; gate it to dev so production builds don't
   // surface a broken option.
@@ -172,6 +174,21 @@ export default function App() {
             Best for: Apps with a custom tone browsing and management experience
           </div>
           <span className="demo-card-cta">Open Demo →</span>
+        </button>
+
+        <button className="demo-card" onClick={() => navigateTo('upload')}>
+          <div className="demo-card-tag">Presigned Uploads</div>
+          <h2 className="demo-card-title">Echo Inc</h2>
+          <p className="demo-card-product">Capture Upload Station</p>
+          <p className="demo-card-desc">
+            Echo Inc pushes capture recordings, models and images into TONE3000.
+            The API mints a presigned URL, the file goes straight to storage, and a
+            handle attaches it to a tone.
+          </p>
+          <div className="demo-card-use-case">
+            Best for: Apps that create TONE3000 content, capturing rigs or publishing models programmatically
+          </div>
+          <span className="demo-card-cta">Try the flow →</span>
         </button>
 
         {import.meta.env.DEV && (

@@ -15,6 +15,8 @@ export const PUBLISHABLE_KEY_LOAD =
   (import.meta.env.VITE_PUBLISHABLE_KEY_LOAD as string | undefined) ?? PUBLISHABLE_KEY;
 export const PUBLISHABLE_KEY_FULL =
   (import.meta.env.VITE_PUBLISHABLE_KEY_FULL as string | undefined) ?? PUBLISHABLE_KEY;
+export const PUBLISHABLE_KEY_UPLOAD =
+  (import.meta.env.VITE_PUBLISHABLE_KEY_UPLOAD as string | undefined) ?? PUBLISHABLE_KEY;
 
 export const REDIRECT_URI =
   (import.meta.env.VITE_REDIRECT_URI as string | undefined) ?? 'http://localhost:3001';

@@ -12,10 +12,15 @@
  */
 
 import { T3K_API } from './config';
+import { TRAIN_TYPE_SWEEP_V3, UploadKind } from './types';
 import type {
   User, Tone, Model, PublicUser,
   PaginatedResponse, SearchTonesParams, ListModelsParams,
   ListCreatedTonesParams, ListFavoritedTonesParams, ListUsersParams,
+  CreateUploadRequest, CreateUploadBatchResponse, UploadTicket,
+  CreateModelFromUploadParams, CreateToneParams,
+  StartTrainingsParams, StartTrainingsResponse, Training,
+  UploadProgress, UploadTarget,
 } from './types';
 
 // ─── Public types ─────────────────────────────────────────────────────────────
@@ -188,7 +193,7 @@ export async function handleOAuthCallbackFromPopup(
 
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
-    return { ok: false, error: (err as any).error ?? 'token_exchange_failed' };
+    return { ok: false, error: (err as { error?: string }).error ?? 'token_exchange_failed' };
   }
 
   const data = await res.json();
@@ -476,7 +481,7 @@ export async function handleOAuthCallback(
 
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
-    return { ok: false, error: (err as any).error ?? 'token_exchange_failed' };
+    return { ok: false, error: (err as { error?: string }).error ?? 'token_exchange_failed' };
   }
 
   const data = await res.json();
@@ -541,6 +546,260 @@ export async function refreshTokens(
     refresh_token: data.refresh_token,
     expires_at: Date.now() + data.expires_in * 1000,
   };
+}
+
+// ─── Uploads: limits and errors ───────────────────────────────────────────────
+
+/**
+ * Per-kind caps the mint endpoint enforces. Mirrors the API so a UI can size a
+ * file picker and refuse an impossible file before spending a round trip — the
+ * API re-checks everything, and it is the authority.
+ */
+export const T3K_UPLOAD_LIMITS: Record<UploadKind, { maxBytes: number; extensions: string[] }> = {
+  model: { maxBytes: 256 * 1024 * 1024, extensions: ['nam', 'wav', 'aidax', 'aasnapshot', 'json'] },
+  audio: { maxBytes: 64 * 1024 * 1024, extensions: ['wav'] },
+  image: { maxBytes: 5 * 1024 * 1024, extensions: ['jpg', 'jpeg', 'png', 'webp'] },
+};
+
+/** Up to 25 files per mint request. */
+export const T3K_MAX_UPLOADS_PER_REQUEST = 25;
+
+/** Which leg of the mint → PUT → consume flow failed. */
+export type T3KRequestStage = 'mint' | 'put' | 'consume' | 'request';
+
+/**
+ * Which 409 the API answered with. Every one of them means this handle is
+ * finished; the recovery is always a fresh mint, never a retry.
+ */
+export type UploadConflictReason =
+  | 'expired'
+  | 'already_used'
+  | 'no_bytes'
+  | 'modified'
+  | 'size_mismatch'
+  | 'unknown';
+
+export interface T3KApiErrorInit {
+  message: string;
+  status: number;
+  stage: T3KRequestStage;
+  serverMessage: string;
+  remint: boolean;
+  conflict?: UploadConflictReason | null;
+  storageCode?: string | null;
+  uploadId?: string | null;
+}
+
+/**
+ * An API or storage failure with the server's own words preserved.
+ *
+ * `message` is the actionable sentence to show a user; `serverMessage` is the
+ * response body verbatim, never swallowed. `remint` says whether the fix is to
+ * mint a new upload_id and PUT the file again.
+ */
+export class T3KApiError extends Error {
+  readonly status: number;
+  readonly stage: T3KRequestStage;
+  readonly serverMessage: string;
+  /** Set when the status is 409; tells the four conditions apart. */
+  readonly conflict: UploadConflictReason | null;
+  /** S3 error code on a failed PUT (SignatureDoesNotMatch, ExpiredToken, …). */
+  readonly storageCode: string | null;
+  /** The handle in play, so a caller can retry a placement 500 with the same one. */
+  readonly uploadId: string | null;
+  /** True when this handle is finished and the fix is a fresh mint. Never a retry signal on its own. */
+  readonly remint: boolean;
+
+  constructor(init: T3KApiErrorInit) {
+    super(init.message);
+    this.name = 'T3KApiError';
+    this.status = init.status;
+    this.stage = init.stage;
+    this.serverMessage = init.serverMessage;
+    this.conflict = init.conflict ?? null;
+    this.storageCode = init.storageCode ?? null;
+    this.uploadId = init.uploadId ?? null;
+    this.remint = init.remint;
+  }
+}
+
+/** All five 409s read the same to a status check, so tell them apart by text. */
+function classifyConflict(serverMessage: string): UploadConflictReason {
+  if (/has expired/i.test(serverMessage)) return 'expired';
+  if (/already been used/i.test(serverMessage)) return 'already_used';
+  if (/No file has been uploaded/i.test(serverMessage)) return 'no_bytes';
+  if (/changed after it was validated/i.test(serverMessage)) return 'modified';
+  // "The uploaded file is <N> bytes but <M> were declared."
+  if (/were declared/i.test(serverMessage)) return 'size_mismatch';
+  return 'unknown';
+}
+
+/** The consume 500s that roll the handle back to unspent, by response body. */
+function isPlacementFailure(serverMessage: string): boolean {
+  return /Failed to store/i.test(serverMessage);
+}
+
+function explainStatus(
+  stage: T3KRequestStage,
+  status: number,
+  serverMessage: string,
+  conflict: UploadConflictReason | null
+): { message: string; remint: boolean } {
+  const detail = serverMessage ? ` ${serverMessage}` : '';
+  switch (status) {
+    case 400:
+      if (/contents do not match/i.test(serverMessage)) {
+        return {
+          message: `The file is not the type its extension claims, so TONE3000 refused it (400).${detail}`,
+          remint: true,
+        };
+      }
+      return { message: `TONE3000 rejected the request as invalid (400).${detail}`, remint: false };
+    case 401:
+      return {
+        message: `Not authenticated (401). Reconnect to TONE3000 and try again.${detail}`,
+        remint: false,
+      };
+    case 403:
+      return {
+        message: `Your TONE3000 account is not allowed to do this (403). Tones can only be edited by the account that owns them.${detail}`,
+        remint: false,
+      };
+    case 404:
+      if (/upload_id not found/i.test(serverMessage)) {
+        return {
+          message:
+            'That upload_id is unknown, belongs to another account, or was minted for a different kind of file (404). Mint a new upload and PUT the file again.',
+          remint: true,
+        };
+      }
+      return { message: `Not found (404).${detail}`, remint: false };
+    case 409:
+      switch (conflict) {
+        case 'expired':
+          return {
+            message:
+              'The upload_id expired (409). Handles last 24 hours from the mint. Mint a new upload and PUT the file again.',
+            remint: true,
+          };
+        case 'already_used':
+          return {
+            message:
+              'That upload_id was already spent (409). Each handle is single use, so do not retry it. Mint a new upload for another copy.',
+            remint: true,
+          };
+        case 'no_bytes':
+          return {
+            message:
+              'No file has reached storage for this upload_id (409). The PUT never ran or did not finish. Mint a new upload and PUT the file again.',
+            remint: true,
+          };
+        case 'modified':
+          return {
+            message:
+              'The staged file changed after TONE3000 validated it (409). PUT each presigned URL exactly once, then mint a new upload and try again.',
+            remint: true,
+          };
+        case 'size_mismatch':
+          return {
+            message:
+              'The staged file is not the size that was declared at mint (409). Storage normally makes this impossible, so if you see it, mint a new upload and PUT the file again.',
+            remint: true,
+          };
+        default:
+          return { message: `The upload_id can no longer be used (409).${detail}`, remint: true };
+      }
+    case 413:
+      return {
+        message: `The file is larger than the limit for this upload (413). Send a smaller file. Re-minting will not help.${detail}`,
+        remint: false,
+      };
+    case 422:
+      return {
+        message: `TONE3000 accepted the file but the target cannot hold it (422). A tone tops out at 300 models.${detail}`,
+        remint: false,
+      };
+    case 500:
+      if (stage === 'consume') {
+        if (isPlacementFailure(serverMessage)) {
+          return {
+            message: `TONE3000 failed while storing the file (500). This is the one 500 that leaves the upload_id unspent, so retrying the identical request with the same handle is safe for the rest of its 24 hours.${detail}`,
+            remint: false,
+          };
+        }
+        return {
+          message: `TONE3000 failed after storing the file (500). The upload_id is spent, so do not retry it.${detail}`,
+          remint: true,
+        };
+      }
+      return {
+        message: `TONE3000 failed to mint the upload URL (500). No handle was issued; retry the request.${detail}`,
+        remint: false,
+      };
+    default:
+      return { message: `Request failed (${status}).${detail}`, remint: false };
+  }
+}
+
+/** Read `{ error }` off a failed API response and turn it into a T3KApiError. */
+async function apiError(
+  res: Response,
+  stage: T3KRequestStage,
+  uploadId?: string | null
+): Promise<T3KApiError> {
+  const body = await res.json().catch(() => ({}));
+  const serverMessage = (body as { error?: string }).error ?? res.statusText ?? '';
+  const conflict = res.status === 409 ? classifyConflict(serverMessage) : null;
+  const { message, remint } = explainStatus(stage, res.status, serverMessage, conflict);
+  return new T3KApiError({
+    message,
+    status: res.status,
+    stage,
+    serverMessage,
+    conflict,
+    remint,
+    uploadId: uploadId ?? null,
+  });
+}
+
+/** A precondition this client checked itself, before any request went out. */
+function localError(message: string, stage: T3KRequestStage, uploadId: string | null = null): T3KApiError {
+  return new T3KApiError({ message, status: 0, stage, serverMessage: '', remint: false, uploadId });
+}
+
+/** Storage answers a failed PUT with XML, not JSON. */
+function storageError(status: number, body: string, uploadId: string | null): T3KApiError {
+  const code = /<Code>([^<]+)<\/Code>/.exec(body)?.[1] ?? null;
+  const detail = /<Message>([^<]+)<\/Message>/.exec(body)?.[1] ?? body.slice(0, 200);
+  const serverMessage = code ? `${code}: ${detail}` : detail;
+
+  let message: string;
+  let remint = true;
+  if (status === 0) {
+    message =
+      'The upload never reached storage: the browser blocked it or the connection dropped. Check the network, then mint a new upload and try again.';
+  } else if (code === 'SignatureDoesNotMatch') {
+    message =
+      'Storage rejected the upload signature (403). The PUT body must be exactly the size_bytes declared at mint, so send the original file untouched and never a re-encoded or resized copy.';
+  } else if (code === 'ExpiredToken') {
+    message =
+      'The presigned URL expired (400). A URL is good for 1 hour from the mint, even though the upload_id lasts 24 hours. Mint a new upload and PUT again.';
+  } else if (code === 'EntityTooLarge') {
+    message = `Storage refused the file as too large (${status}). Send a smaller file. Re-minting will not help.`;
+    remint = false;
+  } else {
+    message = `Storage refused the upload (${status}). ${serverMessage}`;
+  }
+
+  return new T3KApiError({
+    message,
+    status,
+    stage: 'put',
+    serverMessage,
+    storageCode: code,
+    remint,
+    uploadId,
+  });
 }
 
 // ─── Authenticated API client ─────────────────────────────────────────────────
@@ -734,5 +993,285 @@ export class T3KClient {
     const a = Object.assign(document.createElement('a'), { href: url, download: filename });
     a.click();
     URL.revokeObjectURL(url);
+  }
+
+  // ── Uploads ───────────────────────────────────────────────────────────────────
+
+  /**
+   * Mint one presigned upload URL.
+   *
+   * `size_bytes` must be the file's real length: it is signed into the URL, so
+   * a file of any other size is refused by storage, not by us. The returned
+   * ticket carries two clocks — `url_expires_at` (1 h, the PUT deadline) and
+   * `expires_at` (24 h, the upload_id deadline).
+   */
+  async createUpload(file: CreateUploadRequest): Promise<UploadTicket> {
+    const res = await this.fetch('/api/v1/uploads', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(file),
+    });
+    if (!res.ok) throw await apiError(res, 'mint');
+    return res.json();
+  }
+
+  /**
+   * Mint up to 25 upload URLs in one round trip — a training set is ten files.
+   * All or nothing: one bad entry rejects the batch and leaves no handles
+   * behind. Tickets come back in request order and kinds may be mixed.
+   */
+  async createUploads(files: CreateUploadRequest[]): Promise<UploadTicket[]> {
+    if (files.length === 0) throw localError('createUploads needs at least one file.', 'request');
+    if (files.length > T3K_MAX_UPLOADS_PER_REQUEST) {
+      throw localError(
+        `createUploads takes at most ${T3K_MAX_UPLOADS_PER_REQUEST} files per request (got ${files.length}). Split the batch.`,
+        'request'
+      );
+    }
+    const res = await this.fetch('/api/v1/uploads', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ uploads: files }),
+    });
+    if (!res.ok) throw await apiError(res, 'mint');
+    const data: CreateUploadBatchResponse = await res.json();
+    return data.uploads;
+  }
+
+  /**
+   * PUT a File or Blob straight to storage.
+   *
+   * XMLHttpRequest rather than fetch: fetch exposes no upload-progress event,
+   * and the files this flow exists for are tens of megabytes. `Content-Length`
+   * is a forbidden header for scripts, so `ticket.headers` cannot be sent —
+   * the browser derives it from `file.size`, which is exactly the length the
+   * URL was signed for as long as the file is the untouched one you declared
+   * at mint. A ReadableStream body will not work here; pass the File itself.
+   */
+  putUpload(
+    ticket: UploadTicket,
+    file: Blob,
+    onProgress?: (progress: UploadProgress) => void
+  ): Promise<void> {
+    const signedBytes = Number(ticket.headers['Content-Length']);
+    if (Number.isFinite(signedBytes) && file.size !== signedBytes) {
+      return Promise.reject(
+        localError(
+          `This file is ${file.size} bytes but the upload was minted for ${signedBytes}. Storage signs the length and rejects anything else, so mint a new upload with the real size.`,
+          'put',
+          ticket.upload_id
+        )
+      );
+    }
+
+    return new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      // Straight to storage: no API prefix, no Authorization header. The
+      // signature in the URL is the credential.
+      xhr.open(ticket.method, ticket.url, true);
+      xhr.upload.onprogress = (event) => {
+        if (!onProgress) return;
+        const totalBytes = event.lengthComputable ? event.total : file.size;
+        onProgress({
+          phase: 'uploading',
+          loadedBytes: event.loaded,
+          totalBytes,
+          fraction: totalBytes ? event.loaded / totalBytes : 0,
+        });
+      };
+      xhr.onload = () => {
+        if (xhr.status >= 200 && xhr.status < 300) {
+          onProgress?.({
+            phase: 'uploading',
+            loadedBytes: file.size,
+            totalBytes: file.size,
+            fraction: 1,
+          });
+          resolve();
+          return;
+        }
+        reject(storageError(xhr.status, xhr.responseText ?? '', ticket.upload_id));
+      };
+      // Storage sends no error body a script can read here, so status 0 it is.
+      xhr.onerror = () => reject(storageError(0, '', ticket.upload_id));
+      xhr.onabort = () => reject(localError('The upload was canceled.', 'put', ticket.upload_id));
+      xhr.send(file);
+    });
+  }
+
+  /**
+   * Create a model from a staged upload. The file must already be in storage:
+   * this spends the upload_id, copies the bytes into the models bucket, and is
+   * the step that validates them (a .nam must parse as JSON, an IR must be 60 s
+   * or less). The tone's format has to match the file's.
+   */
+  async createModelFromUpload(params: CreateModelFromUploadParams): Promise<Model> {
+    const res = await this.fetch('/api/v1/models', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        tone_id: params.toneId,
+        upload_id: params.uploadId,
+        ...(params.name ? { name: params.name } : {}),
+      }),
+    });
+    if (!res.ok) throw await apiError(res, 'consume', params.uploadId);
+    return res.json();
+  }
+
+  /**
+   * Create a tone, optionally taking its image from a staged upload. Pass at
+   * most one of `imageUrl` / `imageUploadId` — sending both is a 400.
+   */
+  async createTone(params: CreateToneParams): Promise<Tone> {
+    const body: Record<string, unknown> = {
+      title: params.title,
+      gear: params.gear,
+      format: params.format,
+    };
+    if (params.description !== undefined) body.description = params.description;
+    if (params.isPublic !== undefined) body.is_public = params.isPublic;
+    if (params.license !== undefined) body.license = params.license;
+    if (params.links !== undefined) body.links = params.links;
+    if (params.makes !== undefined) body.makes = params.makes;
+    if (params.tags !== undefined) body.tags = params.tags;
+    if (params.imageUrl !== undefined) body.image_url = params.imageUrl;
+    if (params.imageUploadId !== undefined) body.image_upload_id = params.imageUploadId;
+
+    const res = await this.fetch('/api/v1/tones', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) throw await apiError(res, 'consume', params.imageUploadId ?? null);
+    return res.json();
+  }
+
+  /**
+   * Start one training per recording against a tone you already own.
+   *
+   * This is what a capture station calls. Mint an audio upload, PUT the
+   * recording, and pass the handle here. Each output becomes one model on the
+   * tone once its training succeeds.
+   *
+   * The audio has to be mono, 48 kHz, 24-bit PCM and 3:10 long, which is what
+   * you get by playing T3K-sweep-v3.wav through the rig and recording the
+   * result. A file that misses the spec is a 400 naming the output.
+   */
+  async startTrainings(params: StartTrainingsParams): Promise<StartTrainingsResponse> {
+    const res = await this.fetch('/api/v1/trainings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        tone_id: params.toneId,
+        type: TRAIN_TYPE_SWEEP_V3,
+        outputs: params.outputs.map((o) => ({ upload_id: o.uploadId, name: o.name })),
+        ...(params.maxEpochs ? { max_epochs: params.maxEpochs } : {}),
+      }),
+    });
+    // Any one output's handle can be the one that failed, so there is no single
+    // upload_id to blame here.
+    if (!res.ok) throw await apiError(res, 'consume', null);
+    return res.json();
+  }
+
+  /**
+   * Trainings for a tone, newest first. Poll this to drive a progress UI:
+   * `status` is running until the trainer finishes, `epochs` against
+   * `max_epochs` gives a fraction, and `model` is populated once it succeeds.
+   */
+  async listTrainings(toneId: number | string): Promise<PaginatedResponse<Training>> {
+    const res = await this.fetch(`/api/v1/trainings?tone_id=${encodeURIComponent(String(toneId))}`);
+    if (!res.ok) throw new Error(`listTrainings failed: ${res.status}`);
+    return res.json();
+  }
+
+  /**
+   * Point an existing tone at a staged image. Replaces the tone's images
+   * wholesale, and the image it supersedes is deleted. Ownership is checked
+   * before the handle is resolved here, so a 403 or 404 on the tone is reported
+   * ahead of any upload problem.
+   */
+  async setToneImage(toneId: number | string, imageUploadId: string): Promise<Tone> {
+    const res = await this.fetch(`/api/v1/tones/${toneId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ image_upload_id: imageUploadId }),
+    });
+    if (!res.ok) throw await apiError(res, 'consume', imageUploadId);
+    return res.json();
+  }
+
+  /**
+   * Run the whole flow for one file: mint → PUT → consume, reporting progress
+   * throughout. This is the method to copy for a real integration.
+   *
+   * Every failure arrives as a T3KApiError carrying the server's own message,
+   * the stage it failed at, and `remint` — true when this handle is finished
+   * and only a fresh one will do. `remint === false` is not a retry signal:
+   * 401/403 are auth and ownership, 400/413/422 mean the request itself has to
+   * change, and the only retryable case is the consume 500 whose body starts
+   * "Failed to store", which leaves the handle unspent for the rest of its 24
+   * hours. Every other consume 500 may already have created the resource, so
+   * ask the resource endpoint before sending anything again.
+   */
+  uploadFile(
+    file: File,
+    target: Extract<UploadTarget, { resource: 'model' }>,
+    onProgress?: (progress: UploadProgress) => void
+  ): Promise<Model>;
+  uploadFile(
+    file: File,
+    target: Extract<UploadTarget, { resource: 'tone-image' }>,
+    onProgress?: (progress: UploadProgress) => void
+  ): Promise<Tone>;
+  uploadFile(
+    file: File,
+    target: UploadTarget,
+    onProgress?: (progress: UploadProgress) => void
+  ): Promise<Model | Tone>;
+  async uploadFile(
+    file: File,
+    target: UploadTarget,
+    onProgress?: (progress: UploadProgress) => void
+  ): Promise<Model | Tone> {
+    const kind = target.resource === 'model' ? UploadKind.Model : UploadKind.Image;
+    const limit = T3K_UPLOAD_LIMITS[kind];
+    const extension = (file.name.split('.').pop() ?? '').toLowerCase();
+    if (!limit.extensions.includes(extension)) {
+      throw localError(
+        `${file.name} is not a supported ${kind} file (expected ${limit.extensions
+          .map((e) => `.${e}`)
+          .join(', ')}).`,
+        'request'
+      );
+    }
+    if (file.size > limit.maxBytes) {
+      throw localError(
+        `${file.name} is ${file.size} bytes, over the ${Math.round(limit.maxBytes / (1024 * 1024))} MiB limit for ${kind} uploads.`,
+        'request'
+      );
+    }
+
+    const report = (phase: UploadProgress['phase'], loadedBytes: number, fraction: number) =>
+      onProgress?.({ phase, loadedBytes, totalBytes: file.size, fraction });
+
+    report('minting', 0, 0);
+    const ticket = await this.createUpload({ kind, filename: file.name, size_bytes: file.size });
+
+    await this.putUpload(ticket, file, onProgress);
+
+    report('consuming', file.size, 1);
+    const created =
+      target.resource === 'model'
+        ? await this.createModelFromUpload({
+            toneId: target.toneId,
+            uploadId: ticket.upload_id,
+            name: target.name,
+          })
+        : await this.setToneImage(target.toneId, ticket.upload_id);
+
+    report('done', file.size, 1);
+    return created;
   }
 }

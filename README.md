@@ -541,7 +541,7 @@ The five 409 bodies, quoted in full so an equality check matches:
 This upload_id has expired
 This upload_id has already been used
 No file has been uploaded for this upload_id
-The uploaded file changed after it was validated - request a new upload_id
+The uploaded file changed after it was validated. Request a new upload_id.
 The uploaded file is <N> bytes but <M> were declared. Request a new upload_id.
 ```
 

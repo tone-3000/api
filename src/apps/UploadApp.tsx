@@ -223,6 +223,8 @@ export function UploadApp() {
   const [title, setTitle] = useState('');
   const [gear, setGear] = useState<Gear | ''>('');
 
+  const [image, setImage] = useState<File | null>(null);
+  const [imageJob, setImageJob] = useState<Job | null>(null);
   const [jobs, setJobs] = useState<Job[]>([]);
   const [tone, setTone] = useState<Tone | null>(null);
   const [trainings, setTrainings] = useState<Training[]>([]);
@@ -240,6 +242,11 @@ export function UploadApp() {
   }, [path, picks]);
 
   const gears = format === Format.Ir ? IR_GEARS : MODEL_GEARS;
+
+  const imageLimit = T3K_UPLOAD_LIMITS[UploadKind.Image];
+
+  const imagePreview = useMemo(() => (image ? URL.createObjectURL(image) : null), [image]);
+  useEffect(() => () => { if (imagePreview) URL.revokeObjectURL(imagePreview); }, [imagePreview]);
 
   // Every progress row is keyed by its model name. The API is happy to hold two
   // models with the same name; this screen is what needs them apart.
@@ -264,6 +271,10 @@ export function UploadApp() {
   useEffect(() => () => { if (pollRef.current) window.clearInterval(pollRef.current); }, []);
 
   const handleConnect = useCallback(() => {
+    // The callback lands on the bare redirect URI with no ?demo=, so this is
+    // what tells App which demo to return to. Without it the default sends the
+    // user to the full-api demo instead of back here.
+    sessionStorage.setItem('t3k_pending_demo', 'upload');
     startStandardFlow(PUBLISHABLE_KEY_UPLOAD, REDIRECT_URI);
   }, []);
 
@@ -302,6 +313,45 @@ export function UploadApp() {
     if (next.length) setPicks((p) => [...p, ...next]);
   }, [limit, path, picks]);
 
+  const pickImage = useCallback((list: FileList | null) => {
+    const file = list?.[0];
+    if (!file) return;
+    const ext = extensionOf(file.name);
+    if (!imageLimit.extensions.includes(ext)) {
+      setError(`${file.name}: .${ext} is not an image. Allowed: ${imageLimit.extensions.map((e) => '.' + e).join(', ')}`);
+      return;
+    }
+    if (file.size > imageLimit.maxBytes) {
+      setError(`${file.name} is ${(file.size / 1024 / 1024).toFixed(1)} MB, over the ${(imageLimit.maxBytes / 1024 / 1024) | 0} MB image limit.`);
+      return;
+    }
+    setError(null);
+    setImage(file);
+  }, [imageLimit]);
+
+  /**
+   * Mint, send and return the handle for the tone's image.
+   *
+   * POST /tones consumes this itself, so unlike every other upload here it has
+   * to finish before the tone exists. The API checks the bytes against the
+   * extension's signature when it places them, so a renamed file is a 400 at
+   * tone create rather than a broken image later.
+   */
+  const uploadImage = useCallback(async (file: File): Promise<string> => {
+    setImageJob({ name: file.name, phase: 'minting', fraction: 0 });
+    const ticket = await t3kClient.createUpload({
+      kind: UploadKind.Image,
+      filename: file.name,
+      size_bytes: file.size,
+    });
+    setImageJob((j) => (j ? { ...j, phase: 'uploading' } : j));
+    await t3kClient.putUpload(ticket, file, (p: UploadProgress) =>
+      setImageJob((j) => (j ? { ...j, fraction: p.fraction } : j))
+    );
+    setImageJob((j) => (j ? { ...j, phase: 'done', fraction: 1 } : j));
+    return ticket.upload_id;
+  }, []);
+
   const setJob = (name: string, patch: Partial<Job>) =>
     setJobs((js) => js.map((j) => (j.name === name ? { ...j, ...patch } : j)));
 
@@ -314,7 +364,8 @@ export function UploadApp() {
    * is accepted or rejected together, then poll for status.
    */
   const runCapture = useCallback(async () => {
-    const created = await t3kClient.createTone({ title, gear: gear as Gear, format: Format.Nam });
+    const imageUploadId = image ? await uploadImage(image) : undefined;
+    const created = await t3kClient.createTone({ title, gear: gear as Gear, format: Format.Nam, imageUploadId });
     setTone(created);
     toneRef.current = created;
 
@@ -359,11 +410,12 @@ export function UploadApp() {
         // A blip in polling is not worth failing the flow over.
       }
     }, 5000);
-  }, [picks, title, gear]);
+  }, [picks, title, gear, image, uploadImage]);
 
   /** The upload flow: same mint and PUT, but the handle becomes a model directly. */
   const runUpload = useCallback(async () => {
-    const created = await t3kClient.createTone({ title, gear: gear as Gear, format });
+    const imageUploadId = image ? await uploadImage(image) : undefined;
+    const created = await t3kClient.createTone({ title, gear: gear as Gear, format, imageUploadId });
     setTone(created);
     toneRef.current = created;
 
@@ -390,7 +442,7 @@ export function UploadApp() {
       setJob(pick.name, { phase: 'done' });
     }
     setModels(made);
-  }, [picks, title, gear, format]);
+  }, [picks, title, gear, format, image, uploadImage]);
 
   const submit = useCallback(async () => {
     setError(null);
@@ -431,11 +483,26 @@ export function UploadApp() {
     }
   }, [path, picks, runCapture, runUpload]);
 
+  /**
+   * Model files are served behind the same Bearer auth as the rest of the API,
+   * so `model_url` is not something a link can open. Anchoring it straight
+   * gives a 401, because the browser sends no Authorization header on a plain
+   * navigation. Fetch it with the token and hand the user the blob.
+   */
+  const download = useCallback(async (modelUrl: string, name: string) => {
+    try {
+      await t3kClient.downloadModel(modelUrl, name);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    }
+  }, []);
+
   const restart = () => {
     if (pollRef.current) window.clearInterval(pollRef.current);
     pollRef.current = null;
     setStep('choose'); setPath(null); setPicks([]); setTitle(''); setGear('');
     setJobs([]); setTone(null); toneRef.current = null; setTrainings([]); setModels([]);
+    setImage(null); setImageJob(null);
     setError(null); setReconciled(null);
   };
 
@@ -636,6 +703,42 @@ export function UploadApp() {
                   Only gear that can hold a {FORMAT_LABEL[format]} model is listed. The API rejects
                   an incompatible pair with a 400.
                 </span>
+
+                <span style={label}>Image (optional)</span>
+                {imagePreview && (
+                  <img
+                    src={imagePreview}
+                    alt=""
+                    style={{
+                      width: '100%',
+                      maxWidth: 320,
+                      aspectRatio: '1 / 1',
+                      objectFit: 'cover',
+                      borderRadius: 10,
+                      border: '1px solid var(--border)',
+                      background: 'var(--surface2)',
+                    }}
+                  />
+                )}
+                <div style={row}>
+                  <input
+                    type="file"
+                    accept={imageLimit.extensions.map((e) => '.' + e).join(',')}
+                    onChange={(e) => { pickImage(e.target.files); e.target.value = ''; }}
+                  />
+                  {image && (
+                    <button className="btn btn-ghost btn-small" onClick={() => setImage(null)}>
+                      Remove
+                    </button>
+                  )}
+                </div>
+                <span style={hint}>
+                  {imageLimit.extensions.map((e) => '.' + e).join(', ')}, up to{' '}
+                  {(imageLimit.maxBytes / 1024 / 1024) | 0} MB. It goes up as its own{' '}
+                  <code>image</code> upload and is passed to{' '}
+                  <code>POST /tones</code> as <code>image_upload_id</code>, so the tone is created
+                  with it already attached.
+                </span>
               </div>
               <div style={row}>
                 <button className="btn btn-ghost" onClick={() => setStep('files')}>Back</button>
@@ -654,13 +757,49 @@ export function UploadApp() {
                   {step === 'working' ? 'Uploading' : path === 'capture' ? 'Training' : 'Done'}
                 </h2>
                 {tone && (
-                  <p style={hint}>
-                    Tone #{tone.id} &ldquo;{tone.title}&rdquo; created.
-                  </p>
+                  <div style={{ ...row, alignItems: 'flex-start', gap: 14 }}>
+                    {tone.images?.[0] && (
+                      <img
+                        src={tone.images[0]}
+                        alt=""
+                        style={{
+                          width: 140,
+                          height: 140,
+                          objectFit: 'cover',
+                          borderRadius: 10,
+                          border: '1px solid var(--border)',
+                          background: 'var(--surface2)',
+                        }}
+                      />
+                    )}
+                    <p style={hint}>
+                      Tone #{tone.id} &ldquo;{tone.title}&rdquo; created.
+                    </p>
+                  </div>
                 )}
               </div>
 
               <div style={card}>
+                {imageJob && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    <div style={row}>
+                      <strong>{imageJob.name}</strong>
+                      <span className="meta-text">
+                        {imageJob.phase === 'minting' && 'requesting an upload URL'}
+                        {imageJob.phase === 'uploading' && `sending to storage ${Math.round(imageJob.fraction * 100)}%`}
+                        {imageJob.phase === 'done' && 'attached to the tone'}
+                      </span>
+                    </div>
+                    <div style={bar}>
+                      <div style={{
+                        width: `${Math.round(imageJob.fraction * 100)}%`,
+                        height: '100%',
+                        background: 'var(--accent)',
+                        transition: 'width 120ms linear',
+                      }} />
+                    </div>
+                  </div>
+                )}
                 {jobs.map((job) => (
                   <div key={job.name} style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                     <div style={row}>
@@ -717,7 +856,13 @@ export function UploadApp() {
                         </>
                       )}
                       {t.status === 'succeeded' && t.model?.model_url && (
-                        <a className="profile-link" href={t.model.model_url}>Download the trained model</a>
+                        <button
+                          className="btn btn-ghost btn-small"
+                          style={{ alignSelf: 'flex-start' }}
+                          onClick={() => download(t.model!.model_url!, t.model!.name)}
+                        >
+                          Download the trained model
+                        </button>
                       )}
                     </div>
                   ))}
@@ -737,7 +882,15 @@ export function UploadApp() {
                     <div key={m.id} style={row}>
                       <strong>{m.name}</strong>
                       <span className="meta-text">#{m.id}</span>
-                      {m.model_url && <a className="profile-link" href={m.model_url}>Download</a>}
+                      {m.model_url && (
+                        <button
+                          className="btn btn-ghost btn-small"
+                          style={{ marginLeft: 'auto' }}
+                          onClick={() => download(m.model_url!, m.name)}
+                        >
+                          Download
+                        </button>
+                      )}
                     </div>
                   ))}
                 </div>

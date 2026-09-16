@@ -1,6 +1,12 @@
 // App.tsx
 import { useState, useEffect } from 'react';
-import { PUBLISHABLE_KEY_FULL, REDIRECT_URI } from './config';
+import {
+  PUBLISHABLE_KEY_FULL,
+  PUBLISHABLE_KEY_LOAD,
+  PUBLISHABLE_KEY_SELECT,
+  PUBLISHABLE_KEY_UPLOAD,
+  REDIRECT_URI,
+} from './config';
 import { handleOAuthCallback, T3KClient, startStandardFlow } from './tone3000-client';
 import { SelectApp } from './apps/SelectApp';
 import { LoadToneApp } from './apps/LoadToneApp';
@@ -39,15 +45,35 @@ import t3kLogo from './assets/t3k.svg';
   window.close();
 })();
 
-// One shared client — sessionStorage tokens survive page refreshes
-export const t3kClient = new T3KClient(PUBLISHABLE_KEY_FULL, () => {
+/**
+ * Each demo authenticates as its own client. An OAuth code is minted against
+ * the key that started the flow, so exchanging or refreshing it with a
+ * different key fails. Every path that touches a token resolves the key from
+ * the demo rather than reaching for the full-api one.
+ *
+ * These all collapse to the same value unless the per-demo VITE_PUBLISHABLE_KEY_*
+ * variables are set, which is why a mismatch here stays invisible in local dev.
+ */
+const PUBLISHABLE_KEY_BY_DEMO: Partial<Record<Demo, string>> = {
+  select: PUBLISHABLE_KEY_SELECT,
+  'load-tone': PUBLISHABLE_KEY_LOAD,
+  'full-api': PUBLISHABLE_KEY_FULL,
+  upload: PUBLISHABLE_KEY_UPLOAD,
+};
+
+const keyForDemo = (demo: Demo | null): string =>
+  (demo && PUBLISHABLE_KEY_BY_DEMO[demo]) || PUBLISHABLE_KEY_FULL;
+
+// One shared client — sessionStorage tokens survive page refreshes. Each demo
+// is its own page load carrying ?demo=, so the key is settled at construction.
+export const t3kClient = new T3KClient(keyForDemo(getActiveDemo()), () => {
   const demo = getActiveDemo();
   // Popup-based demos handle re-auth via popup —
   // don't do a full-page redirect that would break the popup UX.
   if (demo === 'load-tone') return;
   // Re-authenticate silently; user won't see login if still signed into TONE3000
   sessionStorage.setItem('t3k_pending_demo', demo ?? 'full-api');
-  startStandardFlow(PUBLISHABLE_KEY_FULL, REDIRECT_URI);
+  startStandardFlow(keyForDemo(demo), REDIRECT_URI);
 });
 
 function getActiveDemo(): Demo | null {
@@ -83,7 +109,7 @@ export default function App() {
 
     setProcessing(true);
 
-    handleOAuthCallback(PUBLISHABLE_KEY_FULL, REDIRECT_URI).then((result) => {
+    handleOAuthCallback(keyForDemo(pendingDemo), REDIRECT_URI).then((result) => {
       if (result.ok) {
         t3kClient.setTokens(result.tokens);
         if (result.toneId) sessionStorage.setItem('t3k_resolved_tone_id', result.toneId);

@@ -53,11 +53,18 @@ It's the reference implementation for a full API integration.
 Echo Inc is a capture station. It records rigs and publishes the results to
 TONE3000 without hosting anything itself: it asks for a presigned URL, sends the
 bytes straight to storage, then hands the resulting `upload_id` to the endpoint
-that should own the file. The demo shows all three steps with the live request and
-response for each, both expiry clocks counting down, and the API's own error
-text when something is refused.
+that should own the file.
 
-**Endpoints used:** `POST /uploads`, `PUT <presigned storage URL>`, `POST /models`, `PATCH /tones/{id}`
+The demo follows the same shape as the capture and upload pages on the site.
+The user chooses between capturing gear and publishing a model they already
+have, adds the files, names the tone, and then watches either the training run
+or the finished models appear. Capture recordings are checked against the
+trainer's spec in the browser first, from the WAV header alone, so a file that
+would be refused never gets uploaded. When a call fails after spending a handle,
+the demo reconciles by reading the resource back rather than retrying blindly,
+which is the recovery every real integration needs.
+
+**Endpoints used:** `POST /tones`, `POST /uploads`, `PUT <presigned storage URL>`, `POST /trainings`, `GET /trainings`, `POST /models`
 
 See [Presigned Uploads](#presigned-uploads) below for the full interface, limits,
 timing and error reference.
@@ -229,22 +236,30 @@ T3K_UPLOAD_LIMITS[UploadKind.Model]; // { maxBytes: 268435456, extensions: ['nam
 ```
 
 `uploadFile` targets a model or a tone image. Training audio is not one of its
-targets, and this client has no `POST /api/v1/trainings` method, so a capture
-station drives that path itself: `createUpload({ kind: UploadKind.Audio, … })`,
-`putUpload(…)`, then your own call to `/trainings` with the returned
-`upload_id`. The curl version is under
+targets, because the handle goes to `/trainings` alongside the others in the set
+rather than to an endpoint of its own. Drive that path with the three calls
+directly:
+
+```typescript
+const ticket = await client.createUpload({ kind: UploadKind.Audio, filename: file.name, size_bytes: file.size });
+await client.putUpload(ticket, file, (p) => setBar(p.fraction));
+
+// Up to 10 outputs in one call, so the whole set is accepted or rejected together
+const { trainings } = await client.startTrainings({
+  toneId: 42,
+  outputs: [{ uploadId: ticket.upload_id, name: 'Clean' }],
+});
+
+// Poll until nothing is still running
+const { data } = await client.listTrainings(42);
+```
+
+The curl version is under
 [Capture audio, start to finish](#capture-audio-start-to-finish).
 
 ---
 
 ## Presigned Uploads
-
-> **Availability.** This endpoint is not live on `https://www.tone3000.com` yet.
-> `POST /api/v1/uploads` currently answers `404` there, while every other
-> endpoint in this README is deployed. Until it ships, run this demo against a
-> local TONE3000 checkout (see [Running this locally against a dev stack](#running-this-locally-against-a-dev-stack));
-> pointing it at production and getting a `404` means the endpoint is missing,
-> not that your handle or tone is.
 
 ### What it gives you
 
@@ -650,11 +665,6 @@ export T3K_API=https://www.tone3000.com/api/v1
 export T3K_SECRET_KEY=t3k_cs_...        # from Settings -> API Keys
 ```
 
-> `POST /api/v1/uploads` is not live on production yet, so step 2 answers `404`
-> there today. Until it ships, point `T3K_API` at a local TONE3000 dev server
-> (see [Running this locally against a dev stack](#running-this-locally-against-a-dev-stack)).
-> Every other call below is live.
-
 **1. Create a tone to hold the model**
 
 A tone is single-format, so declare the format the file will be. Use an existing
@@ -871,9 +881,8 @@ checkout, uncomment it in your `.env`:
 5. **Run this app** with `npm run dev` and open
    [http://localhost:3001](http://localhost:3001).
 
-The upload demo needs an account with at least one tone, since the model and
-image paths both attach to one. Its button stays disabled with an explanatory
-hint until there is one.
+The upload demo creates its own tone as the first step of either path, so it
+needs nothing in the account beyond a signed-in user.
 
 ---
 

@@ -189,18 +189,18 @@ export interface ListUsersParams {
  * allowed extensions and the size cap.
  */
 export enum UploadKind {
-  /** Model file — .nam, .wav (IR), .aidax, .aasnapshot, .json. Consumed by POST /models. */
+  /** Model file: .nam, .wav (IR), .aidax, .aasnapshot, .json. Consumed by POST /models. */
   Model = 'model',
-  /** Training audio — .wav only. Consumed by POST /trainings. */
+  /** Training audio, .wav only. Consumed by POST /trainings. */
   Audio = 'audio',
-  /** Tone image — .jpg, .jpeg, .png, .webp. Consumed by tone create/edit. */
+  /** Tone image: .jpg, .jpeg, .png, .webp. Consumed by tone create/edit. */
   Image = 'image',
 }
 
 /** One entry of POST /api/v1/uploads. */
 export interface CreateUploadRequest {
   kind: UploadKind;
-  /** 1–255 chars, no control characters. Only its extension is authoritative. */
+  /** 1 to 255 chars, no control characters. Only its extension is authoritative. */
   filename: string;
   /** Exact byte length. Signed into the URL, so the PUT body must match it exactly. */
   size_bytes: number;
@@ -215,13 +215,13 @@ export interface CreateUploadBatchRequest {
  * One minted upload. It carries two independent clocks that are never
  * interchangeable:
  *
- * - `url_expires_at` — storage's clock, mint + 1 hour. Deadline for the PUT.
- * - `expires_at` — the API's clock, mint + 24 hours. Deadline for spending `upload_id`.
+ * - `url_expires_at` is storage's clock, mint + 1 hour. It is the deadline for the PUT.
+ * - `expires_at` is the API's clock, mint + 24 hours. It is the deadline for spending `upload_id`.
  *
  * A dead URL still leaves a live handle, but nothing can re-arm it: mint again.
  */
 export interface UploadTicket {
-  /** `up_<uuid>`. Single use — consuming it once spends it. */
+  /** `up_<uuid>`. Single use, so consuming it once spends it. */
   upload_id: string;
   /** Presigned storage URL. PUT the bytes here directly, with no auth header. */
   url: string;
@@ -234,7 +234,7 @@ export interface UploadTicket {
   expires_at: string;
 }
 
-/** Batch form of the mint response — mirrors the request shape. */
+/** Batch form of the mint response, mirroring the request shape. */
 export interface CreateUploadBatchResponse {
   uploads: UploadTicket[];
 }
@@ -273,7 +273,7 @@ export interface UploadProgress {
   /** Bytes of the file pushed to storage so far. Only moves during 'uploading'. */
   loadedBytes: number;
   totalBytes: number;
-  /** 0–1 over the PUT. 0 while minting, 1 once the bytes are up. */
+  /** 0 to 1 over the PUT. 0 while minting, 1 once the bytes are up. */
   fraction: number;
 }
 

@@ -15,7 +15,7 @@
 // straight to storage, and hand the returned handle to the trainings endpoint.
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { CSSProperties } from 'react';
-import { PUBLISHABLE_KEY_UPLOAD, REDIRECT_URI, T3K_API } from '../config';
+import { PUBLISHABLE_KEY_UPLOAD, REDIRECT_URI } from '../config';
 import { startStandardFlow, T3KApiError, T3K_UPLOAD_LIMITS } from '../tone3000-client';
 import { t3kClient } from '../App';
 import { Spinner } from '../components/Spinner';
@@ -45,8 +45,36 @@ const SPEC = {
   underSeconds: 0,
 };
 
-/** Gears that can hold a NAM model, in the order the site lists them. */
-const NAM_GEARS: Gear[] = [Gear.AmpCab, Gear.Amp, Gear.Cab, Gear.Pedal, Gear.Outboard, Gear.Experimental];
+/**
+ * A tone's format is decided by the file's extension, and this is the mapping
+ * the API uses. Worth mirroring rather than guessing: the tone is created
+ * before any model is attached to it, so a wrong format here does not surface
+ * until POST /models answers 400, with the tone already made.
+ */
+const FORMAT_BY_EXTENSION: Record<string, Format> = {
+  wav: Format.Ir,
+  nam: Format.Nam,
+  aidax: Format.AidaX,
+  aasnapshot: Format.AaSnapshot,
+  json: Format.Proteus,
+};
+
+const FORMAT_LABEL: Record<string, string> = {
+  [Format.Nam]: 'NAM',
+  [Format.Ir]: 'IR',
+  [Format.AidaX]: 'AIDA-X',
+  [Format.AaSnapshot]: 'AA Snapshot',
+  [Format.Proteus]: 'Proteus',
+};
+
+const extensionOf = (filename: string) => filename.toLowerCase().split('.').pop() ?? '';
+const formatOf = (filename: string): Format | null => FORMAT_BY_EXTENSION[extensionOf(filename)] ?? null;
+
+/**
+ * Gears that can hold a model, in the order the site lists them. Every modelled
+ * format shares this set, so NAM, AIDA-X, AA Snapshot and Proteus all use it.
+ */
+const MODEL_GEARS: Gear[] = [Gear.AmpCab, Gear.Amp, Gear.Cab, Gear.Pedal, Gear.Outboard, Gear.Experimental];
 /** Gears that can hold an impulse response. */
 const IR_GEARS: Gear[] = [Gear.Cab, Gear.Space, Gear.Pedal, Gear.Outboard, Gear.Experimental];
 
@@ -163,7 +191,6 @@ const stack: CSSProperties = { display: 'flex', flexDirection: 'column', gap: 18
 const row: CSSProperties = { display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' };
 const label: CSSProperties = { fontSize: 12, textTransform: 'uppercase', letterSpacing: 0.6, color: 'var(--text-3)' };
 const hint: CSSProperties = { fontSize: 13, color: 'var(--text-3)', lineHeight: 1.55 };
-const warn: CSSProperties = { color: '#b45309' };
 const bad: CSSProperties = { color: 'var(--error)' };
 const good: CSSProperties = { color: 'var(--success)' };
 const input: CSSProperties = {
@@ -209,11 +236,22 @@ export function UploadApp() {
   // file, and the site's rule is that a tone is single-format.
   const format: Format = useMemo(() => {
     if (path === 'capture') return Format.Nam;
-    const first = picks[0]?.file.name.toLowerCase() ?? '';
-    return first.endsWith('.wav') ? Format.Ir : Format.Nam;
+    return formatOf(picks[0]?.file.name ?? '') ?? Format.Nam;
   }, [path, picks]);
 
-  const gears = format === Format.Ir ? IR_GEARS : NAM_GEARS;
+  const gears = format === Format.Ir ? IR_GEARS : MODEL_GEARS;
+
+  // Every progress row is keyed by its model name. The API is happy to hold two
+  // models with the same name; this screen is what needs them apart.
+  const duplicateName = useMemo(() => {
+    const seen = new Set<string>();
+    for (const pick of picks) {
+      const key = pick.name.trim().toLowerCase();
+      if (key && seen.has(key)) return pick.name.trim();
+      seen.add(key);
+    }
+    return null;
+  }, [picks]);
   const kind = path === 'capture' ? UploadKind.Audio : UploadKind.Model;
   const limit = T3K_UPLOAD_LIMITS[kind];
 
@@ -233,13 +271,26 @@ export function UploadApp() {
     if (!list) return;
     const next: Pick[] = [];
     for (const file of Array.from(list)) {
-      const ext = file.name.toLowerCase().split('.').pop() ?? '';
+      const ext = extensionOf(file.name);
       if (!limit.extensions.includes(ext)) {
         setError(`${file.name}: .${ext} is not accepted here. Allowed: ${limit.extensions.map((e) => '.' + e).join(', ')}`);
         continue;
       }
       if (file.size > limit.maxBytes) {
         setError(`${file.name} is ${(file.size / 1024 / 1024).toFixed(1)} MB, over the ${(limit.maxBytes / 1024 / 1024) | 0} MB limit.`);
+        continue;
+      }
+      // A tone holds one format, and it is created before the first model is
+      // attached. Catching a mixed set here costs nothing; catching it at
+      // POST /models means a half-filled tone already exists.
+      const settled = picks[0] ?? next[0];
+      const settledFormat = settled && formatOf(settled.file.name);
+      const fileFormat = formatOf(file.name);
+      if (path === 'upload' && settledFormat && fileFormat && fileFormat !== settledFormat) {
+        setError(
+          `${file.name} is ${FORMAT_LABEL[fileFormat]} and these are ${FORMAT_LABEL[settledFormat]}. ` +
+            'A tone holds a single format, so send them as two tones.'
+        );
         continue;
       }
       next.push({
@@ -249,7 +300,7 @@ export function UploadApp() {
       });
     }
     if (next.length) setPicks((p) => [...p, ...next]);
-  }, [limit, path]);
+  }, [limit, path, picks]);
 
   const setJob = (name: string, patch: Partial<Job>) =>
     setJobs((js) => js.map((j) => (j.name === name ? { ...j, ...patch } : j)));
@@ -410,13 +461,6 @@ export function UploadApp() {
               Echo Inc captures rigs and publishes them to TONE3000. Send a recording and get a
               trained model back, or publish a model you already have.
             </p>
-            {!T3K_API.includes('localhost') && !T3K_API.includes('127.0.0.1') && (
-              <p className="connect-state-desc" style={warn}>
-                Heads up: <code>POST /api/v1/uploads</code> is not deployed to {T3K_API} yet, so
-                minting answers 404 there. Point <code>VITE_T3K_API_DOMAIN</code> at a local
-                TONE3000 dev server to run this demo today.
-              </p>
-            )}
             <button className="btn btn-primary btn-t3k btn-large" onClick={handleConnect}>
               <img src={t3kLogo} alt="" className="btn-logo" />
               Connect TONE3000
@@ -550,11 +594,17 @@ export function UploadApp() {
                 ))}
               </div>
 
+              {duplicateName && (
+                <span style={{ ...hint, ...bad }}>
+                  Two files are both called &ldquo;{duplicateName}&rdquo;. Give each model its own name.
+                </span>
+              )}
+
               <div style={row}>
                 <button className="btn btn-ghost" onClick={restart}>Back</button>
                 <button
                   className="btn btn-primary"
-                  disabled={picks.length === 0 || picks.some((p) => !p.name.trim())}
+                  disabled={picks.length === 0 || picks.some((p) => !p.name.trim()) || !!duplicateName}
                   onClick={() => setStep('details')}
                 >
                   Continue
@@ -571,7 +621,7 @@ export function UploadApp() {
                 <p style={hint}>
                   A tone is the pack your models live in. It is single-format, so these{' '}
                   {picks.length} file{picks.length === 1 ? '' : 's'} will all be{' '}
-                  <strong>{format.toUpperCase()}</strong>.
+                  <strong>{FORMAT_LABEL[format]}</strong>.
                 </p>
               </div>
               <div style={card}>
@@ -583,7 +633,7 @@ export function UploadApp() {
                   {gears.map((g) => <option key={g} value={g}>{GEAR_LABEL[g] ?? g}</option>)}
                 </select>
                 <span style={hint}>
-                  Only gear that can hold a {format.toUpperCase()} model is listed. The API rejects
+                  Only gear that can hold a {FORMAT_LABEL[format]} model is listed. The API rejects
                   an incompatible pair with a 400.
                 </span>
               </div>

@@ -325,22 +325,19 @@ Send the body to `url` with method `PUT` and exactly `size_bytes` bytes. Only
 signature. `Content-Type` is deliberately not signed and is ignored; the real
 type is stamped from the extension when the file is copied out.
 
-The signed length is the whole size control, and it is strict in a useful way.
+The signed length is the whole size control.
 
-If you declare a different length, the signature fails with
-`403 SignatureDoesNotMatch` before any byte is read. If you declare the right
-length but send more, storage stops reading at the declared length, so the stored
-object is still exactly `size_bytes`. If you declare the right length but send
-less, the request never gets a response at all. It hangs until your own client
-gives up, and nothing is stored.
+| What you send | What happens |
+|---|---|
+| A length that is not `size_bytes` | `403 SignatureDoesNotMatch`, before a byte is read |
+| The right length, then a longer body | Stored at exactly `size_bytes`. The extra bytes are never read |
+| The right length, then a shorter body | No response at all. The request hangs until your client times out. Nothing is stored |
 
 No path leaves a partial object behind, which is why the endpoint that later
 consumes the handle can trust the size it sees.
 
-**From a browser** you cannot set `Content-Length` yourself, because it is a
-forbidden header name. You do not need to either, since `fetch` and
-`XMLHttpRequest` both derive it from `Blob.size`, which is the value you declared
-at mint. That has three consequences.
+**From a browser** you cannot set `Content-Length`, and you do not have to.
+`fetch` and `XMLHttpRequest` both take it from `Blob.size`. Three consequences:
 
 - Pass the `File` straight off the input element. Re-encoding, resizing, or a
   canvas round trip changes the length and turns the PUT into a 403.

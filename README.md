@@ -51,9 +51,9 @@ It's the reference implementation for a full API integration.
 *Best for: Apps that create TONE3000 content, capturing rigs or publishing models programmatically.*
 
 Echo Inc is a capture station. It records rigs and publishes the results to
-TONE3000 without hosting anything itself: it asks for a presigned URL, sends the
-bytes straight to storage, then hands the resulting `upload_id` to the endpoint
-that should own the file.
+TONE3000 without hosting anything itself, by asking for a presigned URL, sending
+the bytes straight to storage, then handing the resulting `upload_id` to the
+endpoint that should own the file.
 
 The demo follows the same shape as the capture and upload pages on the site.
 The user chooses between capturing gear and publishing a model they already
@@ -326,18 +326,21 @@ signature. `Content-Type` is deliberately not signed and is ignored; the real
 type is stamped from the extension when the file is copied out.
 
 The signed length is the whole size control, and it is strict in a useful way.
-Declare a different length and the signature fails with
-`403 SignatureDoesNotMatch` before any byte is read. Declare the right length and
-send more than that, and storage stops reading at the declared length, so the
-stored object is still exactly `size_bytes`. Declare the right length and send
-less, and the request never gets a response at all: it hangs until your own
-client gives up, and nothing is stored. There is no path that leaves a partial
-object behind, which is why the endpoint that later consumes the handle can trust
-the size it sees.
 
-**From a browser** you cannot set `Content-Length` yourself (it is a forbidden
-header name) and you do not need to: `fetch` and `XMLHttpRequest` both derive it
-from `Blob.size`, which is the value you declared at mint. Three consequences:
+If you declare a different length, the signature fails with
+`403 SignatureDoesNotMatch` before any byte is read. If you declare the right
+length but send more, storage stops reading at the declared length, so the stored
+object is still exactly `size_bytes`. If you declare the right length but send
+less, the request never gets a response at all. It hangs until your own client
+gives up, and nothing is stored.
+
+No path leaves a partial object behind, which is why the endpoint that later
+consumes the handle can trust the size it sees.
+
+**From a browser** you cannot set `Content-Length` yourself, because it is a
+forbidden header name. You do not need to either, since `fetch` and
+`XMLHttpRequest` both derive it from `Blob.size`, which is the value you declared
+at mint. That has three consequences.
 
 - Pass the `File` straight off the input element. Re-encoding, resizing, or a
   canvas round trip changes the length and turns the PUT into a 403.
@@ -409,8 +412,8 @@ with open('sweep.wav', 'rb') as f:
 Measure the size and read the file in the same breath. If the file is still
 being written, or a log rotates under you, the mint and the PUT disagree and you
 get a 403 that says `SignatureDoesNotMatch` while nothing is wrong with your
-credentials. A stream that stops early is worse: it produces no response at all,
-and the request hangs until your own client times out.
+credentials. A stream that stops early is worse, because it produces no response
+at all and the request hangs until your own client times out.
 
 ### 3. Consume
 
@@ -451,7 +454,7 @@ Errors are prefixed differently per endpoint, which matters if you parse them:
 | `audio` | `.wav` | 64 MiB (67108864) | audio bucket |
 | `image` | `.jpg` `.jpeg` `.png` `.webp` | 5 MiB (5242880) | images bucket |
 
-The cap is flat per kind: every model extension gets the same 256 MiB.
+The cap is flat per kind, so every model extension gets the same 256 MiB.
 
 Going over the cap at mint is a cheap `413` with no bytes moved. The same cap is
 re-checked against the stored object when you consume the handle, so a file that
@@ -494,14 +497,14 @@ Guidance:
   the whole hour to land. A dropped transfer starts again from zero, on a new
   handle.
 - On a failed PUT, discard the `upload_id` and mint a new one. Do not retry the
-  dead URL and do not try to clean up: the abandoned handle expires on its own
+  dead URL, and do not try to clean up. The abandoned handle expires on its own
   and the staged object is swept.
 - Confirm within 24 hours of the mint. The deadline is measured from the mint,
   not from the PUT.
 
 **Concurrency.** Handles are independent, so the PUTs in a batch can run in
 parallel and nothing in the API serialises them. Your uplink is the constraint,
-not us: four parallel 27 MiB sweeps share the same pipe, and each of them still
+not us. Four parallel 27 MiB sweeps share the same pipe, and each of them still
 has to finish inside its own signed hour. Three or four at a time is a sane
 default, and a single file on a slow link is better off alone. The consuming
 calls are ordinary API requests and count against the rate limit; the PUTs do
@@ -560,8 +563,8 @@ The uploaded file changed after it was validated. Request a new upload_id.
 The uploaded file is <N> bytes but <M> were declared. Request a new upload_id.
 ```
 
-The last one should not happen: storage enforces the signed length, so the
-stored object is either exactly the declared size or does not exist. It is a
+The last one should not happen, because storage enforces the signed length, so
+the stored object is either exactly the declared size or does not exist. It is a
 backstop, and if you ever see it the answer is the same as the others, which is
 to mint again. A stable substring is the safest way to tell these apart, since
 the fourth carries a dash in the original and the fifth interpolates two numbers.
@@ -703,7 +706,7 @@ MODEL_UPLOAD_URL=$(jq -r .url /tmp/mint.json)
 
 **3. PUT the bytes straight to storage**
 
-No `Authorization` header here: the URL carries its own signature. curl derives
+No `Authorization` header here, because the URL carries its own signature. curl derives
 `Content-Length` from the file, which is what the signature requires, so do not
 set it by hand.
 
@@ -758,7 +761,7 @@ trained model on a tone. It is the whole reason to integrate.
 Record the canonical sweep
 ([T3K-sweep-v3.wav](https://www.tone3000.com/T3K-sweep-v3.wav)) through your gear
 and save the result as mono, 48 kHz, 24-bit PCM WAV, 3:10 long. The length window
-is one-sided: up to a second over is accepted, short is not, so when you trim,
+is one-sided. Up to a second over is accepted and short is not, so when you trim,
 err long.
 
 ```bash
@@ -921,9 +924,10 @@ Full reference: [tone3000.com/api](https://www.tone3000.com/api)
 
 100 requests/minute. For higher limits, contact support@tone3000.com.
 
-Presigned PUTs do not count against it. They go to storage and never reach the
-API, so a ten-file capture session is two API calls: one mint for all ten
-handles, ten PUTs that are free, and one `POST /trainings` carrying all ten.
+Presigned PUTs do not count against it, because they go to storage and never
+reach the API. A ten-file capture session therefore costs two API calls rather
+than ten. You mint all ten handles in one request, PUT the ten files for free,
+then send one `POST /trainings` carrying every handle.
 
 ---
 

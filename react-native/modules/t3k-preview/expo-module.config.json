@@ -1,0 +1,9 @@
+{
+  "platforms": ["apple", "android"],
+  "apple": {
+    "modules": ["T3kPreviewModule"]
+  },
+  "android": {
+    "modules": ["com.example.tone3000.preview.T3kPreviewModule"]
+  }
+}

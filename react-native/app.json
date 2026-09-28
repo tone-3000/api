@@ -1,0 +1,30 @@
+{
+  "expo": {
+    "name": "TONE3000 Example",
+    "slug": "tone3000-example",
+    "scheme": "tone3000-example",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "ios": {
+      "bundleIdentifier": "com.example.tone3000.rn",
+      "supportsTablet": true
+    },
+    "android": {
+      "package": "com.example.tone3000.rn",
+      "adaptiveIcon": {
+        "backgroundColor": "#E6F4FE",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false
+    },
+    "plugins": [
+      "expo-router",
+      "expo-status-bar",
+      "expo-secure-store",
+      "expo-sharing"
+    ]
+  }
+}

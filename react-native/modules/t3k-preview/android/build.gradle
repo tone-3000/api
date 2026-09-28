@@ -1,0 +1,49 @@
+plugins {
+  id 'com.android.library'
+  id 'expo-module-gradle-plugin'
+}
+
+group = 'com.example.tone3000.preview'
+version = '0.1.0'
+
+// Build the engine for the same ABIs as the React Native app.
+def reactNativeArchitectures() {
+  def value = project.getProperties().get("reactNativeArchitectures")
+  return value ? value.split(",") : ["armeabi-v7a", "x86", "x86_64", "arm64-v8a"]
+}
+
+android {
+  namespace "com.example.tone3000.preview"
+  defaultConfig {
+    versionCode 1
+    versionName "0.1.0"
+    externalNativeBuild {
+      cmake {
+        cppFlags "-std=c++20"
+        arguments "-DANDROID_STL=c++_shared", "-DANDROID_SUPPORT_FLEXIBLE_PAGE_SIZES=ON"
+        abiFilters(*reactNativeArchitectures())
+      }
+    }
+  }
+  externalNativeBuild {
+    cmake {
+      // JNI bridge + the shared engine from the repo's native/preview-engine
+      path "CMakeLists.txt"
+      version "3.22.1"
+    }
+  }
+  buildFeatures {
+    prefab true
+  }
+  sourceSets {
+    // DI clip + fallback amp/cab, merged into the app's assets
+    main.assets.srcDirs += "../../../../native/preview-assets"
+  }
+  lintOptions {
+    abortOnError false
+  }
+}
+
+dependencies {
+  implementation 'com.google.oboe:oboe:1.9.3'
+}

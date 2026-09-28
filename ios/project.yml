@@ -1,0 +1,77 @@
+# XcodeGen manifest — generate the Xcode project with:
+#   cd ios && xcodegen generate
+name: TONE3000Example
+options:
+  bundleIdPrefix: com.example.tone3000
+  deploymentTarget:
+    iOS: "17.0"
+
+configFiles:
+  Debug: Config.xcconfig
+  Release: Config.xcconfig
+
+settings:
+  base:
+    SWIFT_VERSION: "5.9"
+    CLANG_CXX_LANGUAGE_STANDARD: c++20
+    GCC_PREPROCESSOR_DEFINITIONS:
+      - "$(inherited)"
+      - NAM_ENABLE_A2_FAST=1
+      - EIGEN_NO_DEBUG
+      - EIGEN_DONT_PARALLELIZE
+    HEADER_SEARCH_PATHS:
+      - "$(SRCROOT)/../native/preview-engine"
+      - "$(SRCROOT)/../native/deps/NeuralAmpModelerCore"
+      - "$(SRCROOT)/../native/deps/NeuralAmpModelerCore/Dependencies/AudioDSPTools"
+    SYSTEM_HEADER_SEARCH_PATHS:
+      - "$(SRCROOT)/../native/deps/NeuralAmpModelerCore/Dependencies/eigen"
+      - "$(SRCROOT)/../native/deps/NeuralAmpModelerCore/Dependencies/nlohmann"
+    SWIFT_OBJC_BRIDGING_HEADER: App/Support/Bridging-Header.h
+    IPHONEOS_DEPLOYMENT_TARGET: "17.0"
+    TARGETED_DEVICE_FAMILY: "1,2"
+    GENERATE_INFOPLIST_FILE: false
+
+targets:
+  TONE3000Example:
+    type: application
+    platform: iOS
+    sources:
+      - path: App
+        excludes:
+          - "Support/Info.plist"
+      # Bundled DI clip + fallback amp/cab shared with the other native examples
+      - path: ../native/preview-assets
+        group: PreviewAssets
+        buildPhase: resources
+      # Shared native preview engine, compiled directly into the app. NAM/Eigen
+      # at -O0 can't keep up with a 48 kHz callback, so the DSP sources are
+      # always optimized while Swift stays Debug-friendly.
+      - path: ../native/preview-engine
+        excludes:
+          - "tools/**"
+          - "CMakeLists.txt"
+        group: NativeEngine
+        compilerFlags: "-O3 -ffast-math -DNDEBUG"
+      - path: ../native/deps/NeuralAmpModelerCore/NAM
+        includes:
+          - "**/*.cpp"
+          - "**/*.h"
+        group: NativeEngine
+        compilerFlags: "-O3 -ffast-math -DNDEBUG"
+      - path: ../native/deps/NeuralAmpModelerCore/Dependencies/AudioDSPTools/dsp
+        includes:
+          - "dsp.cpp"
+          - "dsp.h"
+          - "wav.cpp"
+          - "wav.h"
+          - "ImpulseResponse.cpp"
+          - "ImpulseResponse.h"
+          - "Resample.h"
+        group: NativeEngine
+        compilerFlags: "-O3 -ffast-math -DNDEBUG"
+    settings:
+      base:
+        INFOPLIST_FILE: App/Support/Info.plist
+        PRODUCT_BUNDLE_IDENTIFIER: com.example.tone3000.ios
+        CODE_SIGN_STYLE: Automatic
+        SUPPORTS_MACCATALYST: false

@@ -1,0 +1,37 @@
+{
+  "name": "tone3000-electron-example",
+  "version": "0.1.0",
+  "private": true,
+  "description": "TONE3000 API integration examples for desktop (Electron)",
+  "main": "./out/main/index.js",
+  "author": "TONE3000",
+  "license": "MIT",
+  "scripts": {
+    "predev": "node scripts/copy-engine.mjs",
+    "dev": "electron-vite dev -w",
+    "start": "electron-vite preview",
+    "prebuild": "node scripts/copy-engine.mjs",
+    "build": "electron-vite build",
+    "typecheck:node": "tsc --noEmit -p tsconfig.node.json --composite false",
+    "typecheck:web": "tsc --noEmit -p tsconfig.web.json --composite false",
+    "typecheck": "npm run typecheck:node && npm run typecheck:web",
+    "dist": "npm run build && electron-builder",
+    "dist:dir": "npm run build && electron-builder --dir"
+  },
+  "dependencies": {
+    "neural-amp-modeler-wasm": "^2.0.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "@types/react": "^18.3.28",
+    "@types/react-dom": "^18.3.7",
+    "@vitejs/plugin-react": "^5.2.0",
+    "electron": "^44.4.5",
+    "electron-builder": "^26.15.3",
+    "electron-vite": "^5.0.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "typescript": "~5.9.3",
+    "vite": "^7.1.0"
+  }
+}

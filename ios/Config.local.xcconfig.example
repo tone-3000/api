@@ -1,0 +1,3 @@
+// Copy to Config.local.xcconfig (gitignored) and fill in.
+T3K_PUBLISHABLE_KEY = t3k_pub_your_key_here
+// T3K_REDIRECT_SCHEME = your-app-scheme

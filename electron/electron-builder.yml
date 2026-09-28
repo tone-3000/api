@@ -1,0 +1,16 @@
+appId: com.example.tone3000.desktop
+productName: TONE3000 Example
+directories:
+  buildResources: build
+  output: release
+files:
+  - out/**
+  - package.json
+mac:
+  target: dmg
+  category: public.app-category.music
+win:
+  target: nsis
+linux:
+  target: AppImage
+  category: Audio

@@ -1,0 +1,13 @@
+// TONE3000 settings, surfaced to the app through Info.plist.
+//
+// Don't put your key here — copy Config.local.xcconfig.example to
+// Config.local.xcconfig (gitignored) and set it there.
+//
+// xcconfig treats "//" as a comment, so the API host is a bare hostname.
+T3K_PUBLISHABLE_KEY =
+T3K_API_HOST = www.tone3000.com
+// Must match a redirect URI registered on your publishable key:
+//   <scheme>://oauth/callback
+T3K_REDIRECT_SCHEME = tone3000-example
+
+#include? "Config.local.xcconfig"

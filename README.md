@@ -3,7 +3,7 @@
 A blueprint for integrating your product with [TONE3000](https://www.tone3000.com), the
 tone library for Neural Amp Modeler (NAM) captures and impulse responses (IRs).
 
-The same three demo apps are implemented in five frameworks, so you can start from
+The same three demo apps are implemented in six frameworks, so you can start from
 whichever matches your stack and compare the platform-specific pieces side by side.
 Full API documentation lives at [tone3000.com/api](https://www.tone3000.com/api).
 
@@ -16,9 +16,10 @@ A live build of the web example is at [t3k-api-demo.vercel.app](https://t3k-api-
 | [`ios/`](./ios) | SwiftUI | In-app `WKWebView` | Shared C++ engine via AVAudioEngine |
 | [`android/`](./android) | Jetpack Compose | In-app `WebView` | Shared C++ engine via Oboe |
 | [`react-native/`](./react-native) | Expo (React Native) | `react-native-webview` | Shared C++ engine via a local Expo module |
+| [`juce/`](./juce) | JUCE (macOS, Windows) | System browser + loopback, or optional in-app WebView | Shared C++ engine via `AudioDeviceManager` |
 
 [`native/`](./native) holds the C++ preview engine and audio assets shared by the iOS,
-Android and React Native examples.
+Android, React Native and JUCE examples.
 
 ---
 
@@ -87,10 +88,13 @@ These apply to every platform.
    | Web | `http://localhost:3001` |
    | Electron | `http://localhost:3001/callback` |
    | iOS, Android, React Native | `tone3000-example://oauth/callback` |
+   | JUCE | `http://127.0.0.1:<port>/callback` (loopback; never needs registering) |
 
    The native and desktop examples intercept the redirect inside their embedded
-   browser, so nothing needs to serve that URL. Each example's README shows how to
-   change it.
+   browser, so nothing needs to serve that URL. Loopback URIs (`localhost`, `127.0.0.1`,
+   `[::1]`, any port) are always accepted, which is what lets the JUCE example open the
+   flow in the system browser without registering anything. Each example's README shows
+   how to change it.
 3. **Use PKCE (S256) and check `state`.** All examples generate a fresh verifier, challenge
    and `state` for every flow, and reject callbacks whose `state` doesn't match.
 4. **Handle every callback outcome.** Besides `code` (and `tone_id` for Select/Load Tone),
@@ -155,10 +159,11 @@ electron/       Electron desktop example
 ios/            SwiftUI example (XcodeGen project)
 android/        Jetpack Compose example
 react-native/   Expo example + local native preview module
+juce/           JUCE desktop example (macOS + Windows), browser or WebView OAuth
 native/         Shared C++ preview engine, NAM Core submodule, preview audio assets
 ```
 
-The iOS, Android and React Native examples build NeuralAmpModelerCore from a git
+The iOS, Android, React Native and JUCE examples build NeuralAmpModelerCore from a git
 submodule. After cloning, run:
 
 ```bash

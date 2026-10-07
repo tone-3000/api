@@ -52,6 +52,11 @@ electron/out
 electron/release
 electron/src/renderer/public/engine
 
+# JUCE (JUCE itself and the WebView2 SDK are fetched into the build tree)
+juce/build
+juce/build-*
+juce/out
+
 # React Native (Expo)
 react-native/.expo
 react-native/ios

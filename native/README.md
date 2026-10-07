@@ -1,6 +1,6 @@
 # Shared native preview engine
 
-A small C++ engine used by the iOS, Android and React Native examples to play TONE3000
+A small C++ engine used by the iOS, Android, React Native and JUCE examples to play TONE3000
 previews. It mirrors the web player's chain: a bundled DI clip goes through a NAM model
 ([NeuralAmpModelerCore](https://github.com/sdatkinson/NeuralAmpModelerCore)), then an
 optional cab IR, and renders mono audio.
@@ -32,11 +32,12 @@ of the clip. `pe_get_position` and `pe_get_duration` drive progress UI.
 ## Building
 
 Platforms compile the sources directly: XcodeGen on iOS, CMake `add_subdirectory` on
-Android, the podspec and CMake in the React Native module. Keep these settings on every
-platform:
+Android and in the JUCE app, the podspec and CMake in the React Native module. Keep these
+settings on every platform:
 
 - C++20 and `NAM_ENABLE_A2_FAST=1` (fast path for A2 models).
 - DSP sources at `-O3` even in debug builds. NAM at `-O0` can't render in real time.
+  (MSVC: the JUCE example drops `/RTC1` and adds `/O2` for the engine target in Debug.)
 
 A desktop smoke test renders the preview chain offline. Run it from the repo root; it
 defaults to the bundled assets, or pass `model.nam [input.wav] [ir.wav]`:

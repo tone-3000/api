@@ -4,6 +4,7 @@
 # Consumed by:
 #   - android/app/src/main/cpp/CMakeLists.txt (add_subdirectory)
 #   - react-native/modules/t3k-preview/android (add_subdirectory)
+#   - juce/CMakeLists.txt (add_subdirectory; macOS + Windows)
 #   - ios/ and the React Native podspec compile the same sources directly
 cmake_minimum_required(VERSION 3.22)
 project(preview_engine CXX)
